@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SKRT DERBY — Online Demolition Derby</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@400;600;800&display=swap');
+:root {
+  --bg: #0a0a0a;
+  --card: #111;
+  --border: #1a1a1a;
+  --red: #ff3d00;
+  --green: #00ff88;
+  --blue: #00d4ff;
+  --gold: #ffd700;
+  --text: #e0e0e0;
+  --muted: #777;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; overflow-x:hidden; }
+h1,h2,h3,.title { font-family:'Orbitron',monospace; }
+
+header { position:fixed; top:0; width:100%; z-index:1000; background:rgba(10,10,10,0.95); border-bottom:1px solid var(--border); padding:1rem 2rem; display:flex; justify-content:space-between; align-items:center; backdrop-filter:blur(10px); }
+.logo { font-family:'Orbitron',monospace; font-size:1.8rem; font-weight:900; color:#fff; letter-spacing:-1px; }
+.logo span { color:var(--red); }
+nav { display:flex; gap:2rem; }
+nav a { color:var(--muted); text-decoration:none; font-weight:600; font-size:0.9rem; text-transform:uppercase; letter-spacing:1px; transition:color .2s; }
+nav a:hover { color:var(--red); }
+nav a.play-btn { background:var(--red); color:#fff; padding:0.5rem 1.5rem; border-radius:4px; }
+nav a.play-btn:hover { background:#ff5630; color:#fff; }
+
+.hero { min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; position:relative; overflow:hidden; }
+.hero::before { content:''; position:absolute; top:0;left:0;width:100%;height:100%; background:radial-gradient(ellipse at center, rgba(255,61,0,0.15) 0%, transparent 70%); }
+.hero h1 { font-size:5rem; font-weight:900; letter-spacing:-3px; color:#fff; position:relative; }
+.hero h1 .red { color:var(--red); }
+.hero .subtitle { font-size:1.3rem; color:var(--muted); margin:1rem 0 2rem; position:relative; }
+.hero .cta { display:flex; gap:1rem; position:relative; }
+.btn { display:inline-block; padding:1rem 2.5rem; border-radius:4px; font-weight:800; font-size:1.1rem; text-decoration:none; text-transform:uppercase; letter-spacing:1px; transition:all .3s; cursor:pointer; border:none; }
+.btn-primary { background:var(--red); color:#fff; box-shadow:0 0 30px rgba(255,61,0,0.3); }
+.btn-primary:hover { transform:translateY(-2px); box-shadow:0 0 50px rgba(255,61,0,0.5); }
+.btn-outline { background:transparent; color:var(--text); border:2px solid var(--border); }
+.btn-outline:hover { border-color:var(--red); color:var(--red); }
+
+.stats { display:flex; gap:3rem; margin-top:4rem; position:relative; }
+.stat { text-align:center; }
+.stat .num { font-family:'Orbitron',monospace; font-size:2.5rem; font-weight:900; color:var(--red); }
+.stat .label { color:var(--muted); font-size:0.85rem; text-transform:uppercase; margin-top:0.3rem; }
+
+section { padding:6rem 2rem; max-width:1200px; margin:0 auto; }
+section h2 { font-size:2.5rem; text-align:center; margin-bottom:1rem; color:#fff; }
+section h2 span { color:var(--red); }
+section .sub { text-align:center; color:var(--muted); margin-bottom:3rem; font-size:1.1rem; }
+
+.features { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:2rem; }
+.feature { background:var(--card); border:1px solid var(--border); border-radius:8px; padding:2rem; transition:border-color .3s; }
+.feature:hover { border-color:var(--red); }
+.feature .icon { font-size:2.5rem; margin-bottom:1rem; }
+.feature h3 { font-size:1.2rem; margin-bottom:0.5rem; color:#fff; }
+.feature p { color:var(--muted); font-size:0.95rem; line-height:1.6; }
+
+.arenas { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:1.5rem; }
+.arena { background:var(--card); border:1px solid var(--border); border-radius:8px; padding:1.5rem; cursor:pointer; transition:all .3s; }
+.arena:hover { transform:translateY(-4px); border-color:var(--red); }
+.arena .preview { height:180px; background:linear-gradient(135deg,#1a0a0a,#0a1a1a); border-radius:4px; margin-bottom:1rem; display:flex; align-items:center; justify-content:center; font-size:4rem; }
+.arena h3 { color:#fff; }
+.arena .difficulty { color:var(--red); font-size:0.85rem; margin-top:0.3rem; }
+
+.cars { display:flex; gap:1.5rem; overflow-x:auto; padding:1rem 0; }
+.car { min-width:220px; background:var(--card); border:1px solid var(--border); border-radius:8px; padding:1.5rem; text-align:center; }
+.car .car-icon { font-size:3rem; margin-bottom:0.5rem; }
+.car h4 { color:#fff; margin-bottom:0.3rem; }
+.car .stat { display:flex; justify-content:space-between; margin:0.3rem 0; font-size:0.85rem; }
+.car .stat span:first-child { color:var(--muted); }
+.car .stat span:last-child { color:var(--red); font-weight:600; }
+
+.cta-section { text-align:center; background:linear-gradient(135deg,rgba(255,61,0,0.1),rgba(0,212,255,0.05)); padding:6rem 2rem; }
+.cta-section h2 { font-size:3rem; }
+
+footer { background:var(--card); border-top:1px solid var(--border); padding:3rem 2rem; text-align:center; }
+footer .links { display:flex; justify-content:center; gap:2rem; margin-bottom:1rem; }
+footer a { color:var(--muted); text-decoration:none; }
+footer a:hover { color:var(--red); }
+footer .copy { color:var(--muted); font-size:0.85rem; }
+
+@keyframes shake { 0%,100%{transform:translateX(0)} 10%,30%,50%,70%,90%{transform:translateX(-4px)} 20%,40%,60%,80%{transform:translateX(4px)} }
+.crash-anim { animation:shake 0.5s ease-in-out; }
+
+@media(max-width:768px){
+  .hero h1 { font-size:2.5rem; }
+  nav { gap:1rem; font-size:0.8rem; }
+  .stats { flex-wrap:wrap; gap:1.5rem; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">SK<span>RT</span> DERBY</div>
+  <nav>
+    <a href="/play" class="play-btn">PLAY NOW</a>
+    <a href="#features">Features</a>
+    <a href="#arenas">Arenas</a>
+    <a href="/leaderboard">Leaderboard</a>
+    <a href="/shop">Shop</a>
+  </nav>
+</header>
+
+<section class="hero">
+  <h1>WRECK. <span class="red">SURVIVE.</span> DOMINATE.</h1>
+  <p class="subtitle">The ultimate online demolition derby — crash, smash, and blast your way to victory</p>
+  <div class="cta">
+    <a href="/play" class="btn btn-primary">⚡ PLAY NOW — FREE</a>
+    <a href="#features" class="btn btn-outline">LEARN MORE</a>
+  </div>
+  <div class="stats">
+    <div class="stat"><div class="num" id="playerCount">--</div><div class="label">Players Online</div></div>
+    <div class="stat"><div class="num" id="gameCount">--</div><div class="label">Games Played</div></div>
+    <div class="stat"><div class="num" id="crashCount">--</div><div class="label">Total Crashes</div></div>
+  </div>
+</section>
+
+<section id="features">
+  <h2>Why <span>SKRT</span> Derby?</h2>
+  <p class="sub">Built for chaos. Engineered for destruction.</p>
+  <div class="features">
+    <div class="feature"><div class="icon">💥</div><h3>Real-Time Multiplayer</h3><p>Battle against players worldwide in chaotic 8-player arenas. Every match is different.</p></div>
+    <div class="feature"><div class="icon">🏎️</div><h3>Realistic Car Physics</h3><p>Drift, boost, and smash with physics-based handling. Every collision counts.</p></div>
+    <div class="feature"><div class="icon">⚡</div><h3>Power-Ups & Weapons</h3><p>Collect repair kits, speed boosts, shields, and EMP blasts to turn the tide.</p></div>
+    <div class="feature"><div class="icon">🏆</div><h3>Global Leaderboards</h3><p>Compete for the top spot. Daily, weekly, and all-time leaderboards.</p></div>
+    <div class="feature"><div class="icon">🎨</div><h3>Customize Your Ride</h3><p>Unlock skins, upgrades, and cosmetics in the shop. Make your car yours.</p></div>
+    <div class="feature"><div class="icon">🎮</div><h3>Play Anywhere</h3><p>Works on desktop, tablet, and mobile. Keyboard, gamepad, or touch controls.</p></div>
+  </div>
+</section>
+
+<section id="arenas">
+  <h2>Battle <span>Arenas</span></h2>
+  <p class="sub">Each arena brings unique challenges.</p>
+  <div class="arenas">
+    <div class="arena"><div class="preview">🏟️</div><h3>Scrapyard</h3><div class="difficulty">Beginner</div><p style="color:var(--muted);margin-top:0.5rem">A classic junkyard arena. Tight corners and scattered debris make for intense close-quarters combat.</p></div>
+    <div class="arena"><div class="preview">🌋</div><h3>Volcano Ring</h3><div class="difficulty">Intermediate</div><p style="color:var(--muted);margin-top:0.5rem">Battle on the edge of an active volcano. Falling into the lava means instant elimination.</p></div>
+    <div class="arena"><div class="preview">❄️</div><h3>Frozen Lake</h3><div class="difficulty">Advanced</div><p style="color:var(--muted);margin-top:0.5rem">Slippery ice changes everything. Master the drift or slip into the freezing water.</p></div>
+  </div>
+</section>
+
+<section id="cars">
+  <h2>Choose Your <span>Weapon</span></h2>
+  <p class="sub">Five unique cars, each with different strengths.</p>
+  <div class="cars">
+    <div class="car"><div class="car-icon">🚗</div><h4>Brawler</h4><div class="stat"><span>Speed</span><span>★★★★☆</span></div><div class="stat"><span>Armor</span><span>★★★★☆</span></div><div class="stat"><span>Handling</span><span>★★★☆☆</span></div></div>
+    <div class="car"><div class="car-icon">🏎️</div><h4>Speedster</h4><div class="stat"><span>Speed</span><span>★★★★★</span></div><div class="stat"><span>Armor</span><span>★★☆☆☆</span></div><div class="stat"><span>Handling</span><span>★★★★☆</span></div></div>
+    <div class="car"><div class="car-icon">🚛</div><h4>Tank</h4><div class="stat"><span>Speed</span><span>★★☆☆☆</span></div><div class="stat"><span>Armor</span><span>★★★★★</span></div><div class="stat"><span>Handling</span><span>★★☆☆☆</span></div></div>
+    <div class="car"><div class="car-icon">🚙</div><h4>Drifter</h4><div class="stat"><span>Speed</span><span>★★★☆☆</span></div><div class="stat"><span>Armor</span><span>★★★☆☆</span></div><div class="stat"><span>Handling</span><span>★★★★★</span></div></div>
+    <div class="car"><div class="car-icon">⚡</div><h4>Lightning</h4><div class="stat"><span>Speed</span><span>★★★★☆</span></div><div class="stat"><span>Armor</span><span>★★☆☆☆</span></div><div class="stat"><span>Handling</span><span>★★★☆☆</span></div></div>
+  </div>
+</section>
+
+<div class="cta-section">
+  <h2>Ready to <span style="color:var(--red)">Wreck?</span></h2>
+  <p class="sub" style="margin-bottom:2rem">Join thousands of players. It's free. No download needed.</p>
+  <a href="/play" class="btn btn-primary" style="font-size:1.3rem;padding:1.2rem 3rem;">⚡ PLAY NOW</a>
+</div>
+
+<footer>
+  <div class="links">
+    <a href="/leaderboard">Leaderboard</a>
+    <a href="/shop">Shop</a>
+    <a href="/profile">Profile</a>
+    <a href="https://discord.gg/skrt" target="_blank">Discord</a>
+  </div>
+  <p class="copy">© 2026 SKRT Derby. All rights reserved. Built for destruction.</p>
+</footer>
+
+<script>
+// Fetch live stats
+(async function(){
+  try {
+    const r = await fetch('/api/status');
+    if(r.ok){
+      const d = await r.json();
+      document.getElementById('playerCount').textContent = d.players_online || 0;
+      document.getElementById('gameCount').textContent = d.games_played || 0;
+      document.getElementById('crashCount').textContent = Math.floor((d.games_played||0) * 42.7);
+    }
+  } catch(e) { document.getElementById('playerCount').textContent = '∞'; }
+})();
+</script>
+</body>
+</html>

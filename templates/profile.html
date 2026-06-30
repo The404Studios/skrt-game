@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Profile — SKRT Derby</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@400;600;800&display=swap');
+:root { --bg:#0a0a0a;--card:#111;--border:#1a1a1a;--red:#ff3d00;--green:#00ff88;--gold:#ffd700;--text:#e0e0e0;--muted:#777; }
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-height:100vh}
+header{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding:1rem 2rem;display:flex;justify-content:space-between;align-items:center}
+.logo{font-family:'Orbitron',monospace;font-size:1.5rem;font-weight:900;color:#fff}
+.logo span{color:var(--red)}
+nav a{color:var(--muted);text-decoration:none;font-weight:600;font-size:0.9rem;text-transform:uppercase;margin-left:1.5rem}
+nav a:hover,.active{color:var(--red)}
+main{max-width:800px;margin:2rem auto;padding:0 2rem}
+.profile-header{display:flex;align-items:center;gap:2rem;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:2rem;margin-bottom:2rem}
+.avatar-lg{width:80px;height:80px;border-radius:50%;background:var(--red);display:flex;align-items:center;justify-content:center;font-size:2rem;font-weight:900;color:#fff}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1rem;margin-bottom:2rem}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:1.5rem;text-align:center}
+.stat-card .value{font-family:'Orbitron',monospace;font-size:1.8rem;font-weight:900;color:var(--red)}
+.stat-card .label{color:var(--muted);font-size:0.85rem;margin-top:0.3rem}
+h2{font-family:'Orbitron',monospace;color:#fff;margin-bottom:1rem;font-size:1.3rem}
+.recent-scores{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:1.5rem;margin-bottom:2rem}
+table{width:100%;border-collapse:collapse}
+th{color:var(--muted);text-transform:uppercase;font-size:0.75rem;padding:0.5rem;text-align:left;border-bottom:1px solid var(--border)}
+td{padding:0.5rem;border-bottom:1px solid var(--border);font-size:0.9rem}
+.inventory{display:flex;flex-wrap:wrap;gap:0.5rem}
+.inv-item{background:var(--card);border:1px solid var(--border);border-radius:4px;padding:0.5rem 1rem;font-size:0.85rem}
+footer{text-align:center;padding:2rem;color:var(--muted);border-top:1px solid var(--border);margin-top:3rem}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">SK<span>RT</span> DERBY</div>
+  <nav>
+    <a href="/">Home</a><a href="/play">Play</a><a href="/leaderboard">Leaderboard</a><a href="/shop">Shop</a><a href="/profile" class="active">Profile</a>
+  </nav>
+</header>
+<main>
+  <div class="profile-header">
+    <div class="avatar-lg">W</div>
+    <div><h1 style="font-family:'Orbitron',monospace;color:#fff">wilde</h1><p style="color:var(--muted)">Member since 2026</p></div>
+  </div>
+  <div class="stats-grid">
+    <div class="stat-card"><div class="value" id="gamesPlayed">--</div><div class="label">Games Played</div></div>
+    <div class="stat-card"><div class="value" id="totalScore">--</div><div class="label">Total Score</div></div>
+    <div class="stat-card"><div class="value" id="wins">--</div><div class="label">Wins</div></div>
+    <div class="stat-card"><div class="value" id="coins">--</div><div class="label">Coins</div></div>
+  </div>
+  <h2>Recent Games</h2>
+  <div class="recent-scores"><table><thead><tr><th>Score</th><th>Kills</th><th>Survival</th><th>Arena</th><th>Date</th></tr></thead><tbody id="recentScores"><tr><td colspan="5" style="color:var(--muted)">No games yet</td></tr></tbody></table></div>
+  <h2>Inventory</h2>
+  <div class="inventory" id="inventory"><span style="color:var(--muted)">No items yet</span></div>
+</main>
+<footer>© 2026 SKRT Derby</footer>
+<script>
+(async function(){
+  try{
+    const r=await fetch('/api/users/1');
+    const d=await r.json();
+    if(d.user){
+      document.getElementById('gamesPlayed').textContent=d.user.games_played||0;
+      document.getElementById('totalScore').textContent=(d.user.total_score||0).toLocaleString();
+      document.getElementById('wins').textContent=d.user.wins||0;
+      document.getElementById('coins').textContent=(d.user.coins||0).toLocaleString();
+    }
+    if(d.recent_scores&&d.recent_scores.length){
+      document.getElementById('recentScores').innerHTML=d.recent_scores.map(s=>`<tr><td style="color:#00ff88">${s.score.toLocaleString()}</td><td>${s.kills}</td><td>${s.survival_time.toFixed(1)}s</td><td>${s.arena}</td><td>${new Date(s.played_at).toLocaleDateString()}</td></tr>`).join('');
+    }
+    if(d.inventory&&d.inventory.length){
+      document.getElementById('inventory').innerHTML=d.inventory.map(i=>`<div class="inv-item">${i.name} <span style="color:#777;font-size:0.75rem">${i.category}</span></div>`).join('');
+    }
+  }catch(e){}
+})();
+</script>
+</body>
+</html>

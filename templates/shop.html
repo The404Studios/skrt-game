@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shop — SKRT Derby</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@400;600;800&display=swap');
+:root { --bg:#0a0a0a;--card:#111;--border:#1a1a1a;--red:#ff3d00;--green:#00ff88;--gold:#ffd700;--blue:#00d4ff;--text:#e0e0e0;--muted:#777; }
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-height:100vh}
+header{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding:1rem 2rem;display:flex;justify-content:space-between;align-items:center}
+.logo{font-family:'Orbitron',monospace;font-size:1.5rem;font-weight:900;color:#fff}
+.logo span{color:var(--red)}
+nav a{color:var(--muted);text-decoration:none;font-weight:600;font-size:0.9rem;text-transform:uppercase;margin-left:1.5rem}
+nav a:hover,.active{color:var(--red)}
+main{max-width:1000px;margin:2rem auto;padding:0 2rem}
+h1{font-family:'Orbitron',monospace;font-size:2.5rem;text-align:center;color:#fff;margin-bottom:0.5rem}
+h1 span{color:var(--red)}
+.balance{text-align:center;color:var(--gold);font-size:1.2rem;margin-bottom:2rem;font-family:'Orbitron',monospace}
+.tabs{display:flex;justify-content:center;gap:1rem;margin-bottom:2rem}
+.tab{padding:0.5rem 1.5rem;background:var(--card);border:1px solid var(--border);border-radius:4px;color:var(--muted);cursor:pointer;font-weight:600;text-transform:uppercase;font-size:0.85rem}
+.tab.active,.tab:hover{background:var(--red);color:#fff;border-color:var(--red)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:1rem}
+.item{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:1.5rem;text-align:center;transition:all .3s;position:relative;overflow:hidden}
+.item:hover{border-color:var(--red);transform:translateY(-2px)}
+.item.owned{opacity:0.6;border-color:var(--green)}
+.item.owned::after{content:'✓ OWNED';position:absolute;top:10px;right:10px;background:var(--green);color:#000;padding:2px 8px;border-radius:3px;font-size:0.7rem;font-weight:700}
+.item .icon{font-size:3rem;margin-bottom:0.5rem}
+.item h3{color:#fff;font-size:1.1rem;margin-bottom:0.3rem}
+.item .category{color:var(--muted);font-size:0.8rem;text-transform:uppercase;margin-bottom:0.5rem}
+.item .price{font-size:1.3rem;font-weight:700;color:var(--gold);margin-bottom:0.8rem}
+.item .btn{border:none;padding:0.5rem 1.5rem;border-radius:4px;cursor:pointer;font-weight:700;font-size:0.9rem;width:100%}
+.item .btn-buy{background:var(--red);color:#fff}
+.item .btn-buy:hover{background:#ff5630}
+.item .btn-buy:disabled{background:#333;color:#555;cursor:not-allowed}
+footer{text-align:center;padding:2rem;color:var(--muted);border-top:1px solid var(--border);margin-top:3rem}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">SK<span>RT</span> DERBY</div>
+  <nav>
+    <a href="/">Home</a><a href="/play">Play</a><a href="/leaderboard">Leaderboard</a><a href="/shop" class="active">Shop</a>
+  </nav>
+</header>
+<main>
+  <h1>Garage <span>Shop</span></h1>
+  <div class="balance" id="balance">🪙 Loading...</div>
+  <div class="tabs">
+    <div class="tab active" onclick="filter('all')">All</div>
+    <div class="tab" onclick="filter('skin')">Skins</div>
+    <div class="tab" onclick="filter('upgrade')">Upgrades</div>
+    <div class="tab" onclick="filter('cosmetic')">Cosmetics</div>
+  </div>
+  <div class="grid" id="shopGrid"><p style="color:var(--muted);text-align:center;grid-column:1/-1">Loading...</p></div>
+</main>
+<footer>© 2026 SKRT Derby</footer>
+<script>
+let items=[],coins=0,inventory=[];
+async function load(){
+  try{
+    const[s,u]=await Promise.all([fetch('/api/shop/items'),fetch('/api/users/1')]);
+    items=await s.json();
+    const ud=await u.json();
+    coins=ud.user?.coins||0;
+    inventory=(ud.inventory||[]).map(i=>i.id);
+    document.getElementById('balance').textContent=`🪙 ${coins.toLocaleString()} Coins`;
+    render('all');
+  }catch(e){}
+}
+function filter(cat){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  event.target.classList.add('active');
+  render(cat);
+}
+function render(cat){
+  const grid=document.getElementById('shopGrid');
+  const filtered=cat==='all'?items:items.filter(i=>i.category===cat);
+  grid.innerHTML=filtered.map(i=>{
+    const owned=inventory.includes(i.id);
+    const canAfford=coins>=i.price;
+    const rarityColors={common:'#777',rare:var(--blue),epic:'#a855f7',legendary:var(--gold)};
+    return `<div class="item${owned?' owned':''}">
+      <div class="icon">${getIcon(i.category)}</div>
+      <h3>${i.name}</h3>
+      <div class="category" style="color:${rarityColors[i.rarity]||'#777'}">${i.rarity} ${i.category}</div>
+      <div class="price">🪙 ${i.price.toLocaleString()}</div>
+      <button class="btn ${owned?'btn-buy':'btn-buy'}" ${owned||!canAfford?'disabled':''} onclick="buy(${i.id})">${owned?'Owned':!canAfford?'Not enough coins':'Buy Now'}</button>
+    </div>`;
+  }).join('');
+}
+function getIcon(cat){ return cat==='skin'?'🎨':cat==='upgrade'?'🔧':'✨'; }
+async function buy(id){
+  try{
+    const r=await fetch('/api/shop/buy',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user_id:1,item_id:id})});
+    const d=await r.json();
+    if(d.error) alert(d.error);
+    else { coins=d.coins_left; inventory.push(id); document.getElementById('balance').textContent=`🪙 ${coins.toLocaleString()} Coins`; filter(document.querySelector('.tab.active').textContent.toLowerCase()); }
+  }catch(e){}
+}
+load();
+</script>
+</body>
+</html>

@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Play SKRT Derby</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@400;600;800&display=swap');
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:#000; overflow:hidden; font-family:'Inter',sans-serif; }
+#gameContainer { position:relative; width:100vw; height:100vh; display:flex; flex-direction:column; }
+#topBar { display:flex; justify-content:space-between; align-items:center; padding:8px 16px; background:rgba(0,0,0,0.8); border-bottom:1px solid #1a1a1a; z-index:10; }
+#topBar .title { font-family:'Orbitron',monospace; color:#ff3d00; font-weight:900; font-size:1rem; }
+#topBar .info { color:#777; font-size:0.8rem; }
+#canvasWrap { flex:1; position:relative; }
+canvas { display:block; width:100%; height:100%; }
+#overlay { position:absolute; top:0;left:0;width:100%;height:100%; display:flex; align-items:center; justify-content:center; pointer-events:none; }
+#overlay > div { background:rgba(0,0,0,0.9); border:1px solid #222; border-radius:8px; padding:2rem; text-align:center; pointer-events:all; }
+#overlay h2 { font-family:'Orbitron',monospace; color:#fff; font-size:2rem; margin-bottom:1rem; }
+#overlay .btn { display:inline-block; margin:0.5rem; padding:0.8rem 2rem; background:#ff3d00; color:#fff; border:none; border-radius:4px; cursor:pointer; font-weight:700; font-size:1rem; text-transform:uppercase; }
+#overlay .btn:hover { background:#ff5630; }
+#hud { position:absolute; top:10px; left:10px; color:#fff; font-size:0.85rem; text-shadow:1px 1px 2px #000; }
+.health-bar { background:#333; height:6px; border-radius:3px; margin:2px 0; overflow:hidden; }
+.health-fill { height:100%; transition:width .2s; }
+#mobileControls { position:absolute; bottom:20px; left:50%; transform:translateX(-50%); display:none; gap:20px; align-items:center; }
+.dpad { display:grid; grid-template-columns:60px 60px 60px; grid-template-rows:60px 60px 60px; gap:4px; }
+.dpad button { background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.2); border-radius:8px; color:#fff; font-size:1.5rem; cursor:pointer; }
+.dpad button:active { background:rgba(255,61,0,0.4); }
+@media(max-width:768px){ #mobileControls { display:flex; } }
+</style>
+</head>
+<body>
+<div id="gameContainer">
+  <div id="topBar">
+    <div class="title">SKRT DERBY</div>
+    <div class="info" id="gameInfo">Time: 0:00 | Score: 0</div>
+  </div>
+  <div id="canvasWrap">
+    <canvas id="gameCanvas"></canvas>
+    <div id="overlay">
+      <div>
+        <h2 id="overlayTitle">SKRT DERBY</h2>
+        <p style="color:#777;margin-bottom:1rem" id="overlayMsg">Choose your car and enter the arena!</p>
+        <button class="btn" onclick="startGame('brawler')">🚗 Brawler</button>
+        <button class="btn" onclick="startGame('speedster')">🏎️ Speedster</button>
+        <button class="btn" onclick="startGame('tank')">🚛 Tank</button>
+        <button class="btn" onclick="startGame('drifter')">🚙 Drifter</button>
+        <br>
+        <p style="color:#555;font-size:0.8rem;margin-top:1rem">WASD / Arrows to move. Survive as long as you can!</p>
+      </div>
+    </div>
+  </div>
+  <div id="hud"></div>
+  <div id="mobileControls">
+    <div class="dpad">
+      <div></div><button ontouchstart="pressKey('ArrowUp')" ontouchend="releaseKey('ArrowUp')">▲</button><div></div>
+      <button ontouchstart="pressKey('ArrowLeft')" ontouchend="releaseKey('ArrowLeft')">◀</button><div></div><button ontouchstart="pressKey('ArrowRight')" ontouchend="releaseKey('ArrowRight')">▶</button>
+      <div></div><button ontouchstart="pressKey('ArrowDown')" ontouchend="releaseKey('ArrowDown')">▼</button><div></div>
+    </div>
+  </div>
+</div>
+
+<script src="/static/js/game/engine.js"></script>
+</body>
+</html>

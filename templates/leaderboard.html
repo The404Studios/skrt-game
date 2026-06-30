@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Leaderboard — SKRT Derby</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@400;600;800&display=swap');
+:root { --bg:#0a0a0a;--card:#111;--border:#1a1a1a;--red:#ff3d00;--green:#00ff88;--gold:#ffd700;--text:#e0e0e0;--muted:#777; }
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-height:100vh}
+header{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding:1rem 2rem;display:flex;justify-content:space-between;align-items:center}
+.logo{font-family:'Orbitron',monospace;font-size:1.5rem;font-weight:900;color:#fff}
+.logo span{color:var(--red)}
+nav a{color:var(--muted);text-decoration:none;font-weight:600;font-size:0.9rem;text-transform:uppercase;margin-left:1.5rem}
+nav a:hover,.active{color:var(--red)}
+main{max-width:800px;margin:3rem auto;padding:0 2rem}
+h1{font-family:'Orbitron',monospace;font-size:2.5rem;text-align:center;color:#fff;margin-bottom:2rem}
+h1 span{color:var(--red)}
+table{width:100%;border-collapse:collapse}
+th{background:var(--card);color:var(--muted);text-transform:uppercase;font-size:0.8rem;letter-spacing:1px;padding:1rem;text-align:left;border-bottom:1px solid var(--border)}
+td{padding:1rem;border-bottom:1px solid var(--border);font-size:0.95rem}
+tr:hover{background:rgba(255,61,0,0.03)}
+.rank{font-family:'Orbitron',monospace;font-weight:900;font-size:1.2rem}
+.rank-1{color:var(--gold)}
+.rank-2{color:#c0c0c0}
+.rank-3{color:#cd7f32}
+.player{display:flex;align-items:center;gap:0.8rem}
+.avatar{width:32px;height:32px;border-radius:50%;background:var(--red);display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:0.8rem}
+.score{font-weight:700;color:var(--green)}
+footer{text-align:center;padding:2rem;color:var(--muted);border-top:1px solid var(--border);margin-top:3rem}
+.spinner{text-align:center;padding:3rem;color:var(--muted)}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">SK<span>RT</span> DERBY</div>
+  <nav>
+    <a href="/">Home</a>
+    <a href="/play">Play</a>
+    <a href="/leaderboard" class="active">Leaderboard</a>
+    <a href="/shop">Shop</a>
+  </nav>
+</header>
+<main>
+  <h1>Top <span>Wreckers</span></h1>
+  <table>
+    <thead><tr><th>#</th><th>Player</th><th>Games</th><th>Best Score</th><th>Total</th><th>Wins</th></tr></thead>
+    <tbody id="leaderboardBody"><tr><td colspan="6" class="spinner">Loading leaderboard...</td></tr></tbody>
+  </table>
+</main>
+<footer>© 2026 SKRT Derby</footer>
+<script>
+(async function(){
+  try{
+    const r = await fetch('/api/leaderboard');
+    const data = await r.json();
+    const tbody = document.getElementById('leaderboardBody');
+    if(!data.length){ tbody.innerHTML='<tr><td colspan="6" class="spinner">No games played yet. Be the first!</td></tr>'; return; }
+    tbody.innerHTML = data.map((p,i) => {
+      const rankClass = i===0?'rank-1':i===1?'rank-2':i===2?'rank-3':'';
+      const initial = (p.username||'?')[0].toUpperCase();
+      return `<tr>
+        <td class="rank ${rankClass}">#${i+1}</td>
+        <td><div class="player"><div class="avatar">${initial}</div>${p.username||'Anonymous'}</div></td>
+        <td>${p.games||0}</td>
+        <td class="score">${(p.best||0).toLocaleString()}</td>
+        <td>${(p.total||0).toLocaleString()}</td>
+        <td>${p.wins||0}</td>
+      </tr>`;
+    }).join('');
+  } catch(e) { document.getElementById('leaderboardBody').innerHTML='<tr><td colspan="6" class="spinner">Server unavailable</td></tr>'; }
+})();
+</script>
+</body>
+</html>
