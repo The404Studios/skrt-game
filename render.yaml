@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: skrt-derby
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn server:app --bind 0.0.0.0:$PORT --worker-class gevent --workers 1 --timeout 120
+    envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_PATH
+        value: /var/data/skrt.db
+      - key: DISCORD_CLIENT_ID
+        sync: false
+      - key: DISCORD_CLIENT_SECRET
+        sync: false
+      - key: DISCORD_REDIRECT_URI
+        sync: false
+    disk:
+      name: data
+      mountPath: /var/data
+      sizeGB: 1
