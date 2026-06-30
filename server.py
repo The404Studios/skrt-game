@@ -194,59 +194,136 @@ lock = threading.Lock()
 @sock.route('/ws/game')
 def game_ws(ws):
     player_id = secrets.token_hex(8)
+    player_name = 'Racer'
+    player_car = 'brawler'
+    player_room = None
+    
     with lock:
-        connected_players[player_id] = {'ws': ws, 'state': {}, 'room': None}
+        connected_players[player_id] = {'ws': ws, 'name': player_name, 'car': player_car, 'room': None, 'state': {}}
+    
     try:
         while True:
             data = json.loads(ws.receive())
             msg_type = data.get('type')
             
             if msg_type == 'join':
+                player_name = data.get('name', player_name)
+                player_car = data.get('car', 'brawler')
                 room = data.get('room', 'global')
+                player_room = room
+                
                 with lock:
+                    connected_players[player_id]['name'] = player_name
+                    connected_players[player_id]['car'] = player_car
                     connected_players[player_id]['room'] = room
                     if room not in game_rooms:
-                        game_rooms[room] = set()
-                    game_rooms[room].add(player_id)
-                broadcast(room, {'type': 'player_joined', 'id': player_id, 'count': len(game_rooms[room])})
+                        game_rooms[room] = {'players': {}, 'started': False, 'timer': None}
+                    game_rooms[room]['players'][player_id] = {
+                        'id': player_id, 'name': player_name, 'car': player_car,
+                        'x': 0, 'y': 0, 'angle': 0, 'health': 150, 'maxHealth': 150, 'alive': True
+                    }
+                    count = len(game_rooms[room]['players'])
+                
+                # Tell everyone who joined
+                broadcast(room, {'type': 'player_joined', 'id': player_id, 'name': player_name, 'count': count})
+                
+                # Start game when 2+ players join
+                if count >= 2 and not game_rooms[room]['started']:
+                    game_rooms[room]['started'] = True
+                    threading.Timer(3.0, lambda r=room: start_game_countdown(r)).start()
             
             elif msg_type == 'game_state':
-                room = connected_players[player_id]['room']
-                if room:
-                    broadcast(room, {'type': 'game_update', 'from': player_id, **data}, exclude=player_id)
+                room = connected_players.get(player_id, {}).get('room')
+                if not room or room not in game_rooms:
+                    continue
+                
+                # Update player state
+                with lock:
+                    if player_id in game_rooms[room]['players']:
+                        p = game_rooms[room]['players'][player_id]
+                        p['x'] = data.get('x', p['x'])
+                        p['y'] = data.get('y', p['y'])
+                        p['angle'] = data.get('angle', p['angle'])
+                        p['health'] = data.get('health', p.get('health', 150))
+                        p['alive'] = data.get('health', 150) > 0
+                
+                # Host broadcasts all players + powerups
+                if data.get('host'):
+                    broadcast(room, {'type': 'game_update', 'players': list(game_rooms[room]['players'].values()), 'powerUps': data.get('powerUps', []), 'timer': data.get('timer', 120)})
+                else:
+                    broadcast(room, {'type': 'game_update', 'players': [game_rooms[room]['players'][player_id]], 'from': player_id})
             
             elif msg_type == 'score':
-                room = connected_players[player_id]['room']
-                broadcast(room, {'type': 'score_update', 'player': player_id, 'score': data['score'], 'kills': data.get('kills', 0)})
+                room = connected_players.get(player_id, {}).get('room')
+                if room:
+                    scores = {}
+                    with lock:
+                        for pid, p in game_rooms[room]['players'].items():
+                            scores[pid] = data.get('score', 0) if pid == player_id else 0
+                    broadcast(room, {'type': 'score_update', 'player': player_id, 'score': data['score'], 'kills': data.get('kills', 0), 'name': player_name})
             
             elif msg_type == 'chat':
-                room = connected_players[player_id]['room']
+                room = connected_players.get(player_id, {}).get('room')
                 if room:
-                    broadcast(room, {'type': 'chat', 'from': player_id, 'msg': data['msg']})
-    except Exception:
+                    broadcast(room, {'type': 'chat', 'from': player_name, 'msg': data['msg']})
+    
+    except Exception as e:
         pass
     finally:
         with lock:
             if player_id in connected_players:
-                room = connected_players[player_id]['room']
+                room = connected_players[player_id].get('room')
                 if room and room in game_rooms:
-                    game_rooms[room].discard(player_id)
-                    broadcast(room, {'type': 'player_left', 'id': player_id})
+                    game_rooms[room]['players'].pop(player_id, None)
+                    remaining = len(game_rooms[room]['players'])
+                    broadcast(room, {'type': 'player_left', 'id': player_id, 'name': player_name, 'count': remaining})
+                    if remaining == 0:
+                        del game_rooms[room]
                 del connected_players[player_id]
+
+def start_game_countdown(room):
+    """Start game after countdown, then manage timer"""
+    if room not in game_rooms:
+        return
+    with lock:
+        players = game_rooms[room]['players']
+        player_list = [{'id': pid, 'name': p['name'], 'car': p['car']} for pid, p in players.items()]
+    
+    import random
+    seed = random.randint(0, 99999)
+    broadcast(room, {'type': 'game_start', 'players': {p['id']: p for p in player_list}, 'seed': seed, 'countdown': 3})
+    
+    # Game timer - 120 seconds
+    def game_timer():
+        for remaining in [90, 60, 30, 10, 5, 0]:
+            import time
+            time.sleep(30)
+    
+    threading.Thread(target=game_timer, daemon=True).start()
 
 def broadcast(room, msg, exclude=None):
     if room not in game_rooms:
         return
     data = json.dumps(msg)
-    for pid in list(game_rooms[room]):
+    with lock:
+        pids = list(game_rooms[room]['players'].keys())
+    for pid in pids:
         if pid == exclude:
             continue
         try:
-            connected_players[pid]['ws'].send(data)
+            if pid in connected_players:
+                connected_players[pid]['ws'].send(data)
         except Exception:
             pass
 
-# ── Startup ────────────────────────────────────────────
+# ── API: Active Rooms ──────────────────────────────────
+@app.route('/api/rooms')
+def api_rooms():
+    with lock:
+        rooms = {}
+        for name, room in game_rooms.items():
+            rooms[name] = {'players': len(room['players']), 'started': room['started']}
+        return jsonify({'rooms': rooms, 'total_players': len(connected_players)})
 if __name__ == '__main__':
     init_db()
     conn = get_db()

@@ -1,104 +1,223 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Shop — SKRT Derby</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shop - SKRT DERBY</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏎️</text></svg>">
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@400;600;800&display=swap');
-:root { --bg:#0a0a0a;--card:#111;--border:#1a1a1a;--red:#ff3d00;--green:#00ff88;--gold:#ffd700;--blue:#00d4ff;--text:#e0e0e0;--muted:#777; }
-*{margin:0;padding:0;box-sizing:border-box}
-body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-height:100vh}
-header{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding:1rem 2rem;display:flex;justify-content:space-between;align-items:center}
-.logo{font-family:'Orbitron',monospace;font-size:1.5rem;font-weight:900;color:#fff}
-.logo span{color:var(--red)}
-nav a{color:var(--muted);text-decoration:none;font-weight:600;font-size:0.9rem;text-transform:uppercase;margin-left:1.5rem}
-nav a:hover,.active{color:var(--red)}
-main{max-width:1000px;margin:2rem auto;padding:0 2rem}
-h1{font-family:'Orbitron',monospace;font-size:2.5rem;text-align:center;color:#fff;margin-bottom:0.5rem}
-h1 span{color:var(--red)}
-.balance{text-align:center;color:var(--gold);font-size:1.2rem;margin-bottom:2rem;font-family:'Orbitron',monospace}
-.tabs{display:flex;justify-content:center;gap:1rem;margin-bottom:2rem}
-.tab{padding:0.5rem 1.5rem;background:var(--card);border:1px solid var(--border);border-radius:4px;color:var(--muted);cursor:pointer;font-weight:600;text-transform:uppercase;font-size:0.85rem}
-.tab.active,.tab:hover{background:var(--red);color:#fff;border-color:var(--red)}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:1rem}
-.item{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:1.5rem;text-align:center;transition:all .3s;position:relative;overflow:hidden}
-.item:hover{border-color:var(--red);transform:translateY(-2px)}
-.item.owned{opacity:0.6;border-color:var(--green)}
-.item.owned::after{content:'✓ OWNED';position:absolute;top:10px;right:10px;background:var(--green);color:#000;padding:2px 8px;border-radius:3px;font-size:0.7rem;font-weight:700}
-.item .icon{font-size:3rem;margin-bottom:0.5rem}
-.item h3{color:#fff;font-size:1.1rem;margin-bottom:0.3rem}
-.item .category{color:var(--muted);font-size:0.8rem;text-transform:uppercase;margin-bottom:0.5rem}
-.item .price{font-size:1.3rem;font-weight:700;color:var(--gold);margin-bottom:0.8rem}
-.item .btn{border:none;padding:0.5rem 1.5rem;border-radius:4px;cursor:pointer;font-weight:700;font-size:0.9rem;width:100%}
-.item .btn-buy{background:var(--red);color:#fff}
-.item .btn-buy:hover{background:#ff5630}
-.item .btn-buy:disabled{background:#333;color:#555;cursor:not-allowed}
-footer{text-align:center;padding:2rem;color:var(--muted);border-top:1px solid var(--border);margin-top:3rem}
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&display=swap');
+
+  *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+  :root{--bg:#0a0a0a;--bg2:#0f0f14;--bg3:#16161f;--accent:#ff3d00;--accent2:#00ff88;--text:#e0e0e0;--text-dim:#888;--border:#1a1a2e;--glow:0 0 20px;}
+
+  body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospace;min-height:100vh;}
+
+  .bg-grid{
+    position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:0;
+    background-image:linear-gradient(rgba(255,61,0,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(255,61,0,0.03) 1px,transparent 1px);
+    background-size:60px 60px;
+  }
+
+  nav{
+    position:relative;z-index:10;
+    background:rgba(10,10,10,0.9);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);
+  }
+  .nav-inner{
+    max-width:1200px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;height:60px;padding:0 20px;
+  }
+  .nav-logo{font-size:24px;font-weight:800;color:var(--accent);text-decoration:none;text-shadow:var(--glow) var(--accent);}
+  .nav-logo span{color:var(--accent2);}
+  .nav-links{display:flex;gap:20px;list-style:none;}
+  .nav-links a{color:var(--text-dim);text-decoration:none;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1px;transition:color 0.3s;}
+  .nav-links a:hover,.nav-links a.active{color:var(--accent);}
+  .nav-cta{background:var(--accent);color:#fff;border:none;padding:8px 20px;font-family:inherit;font-weight:700;font-size:13px;cursor:pointer;text-transform:uppercase;letter-spacing:2px;text-decoration:none;}
+  .nav-cta:hover{box-shadow:var(--glow) var(--accent);}
+
+  @media(max-width:768px){.nav-links{display:none;}}
+
+  .container{max-width:1000px;margin:0 auto;padding:40px 20px;position:relative;z-index:1;}
+
+  .page-title{text-align:center;font-size:clamp(28px,5vw,36px);font-weight:800;margin-bottom:8px;}
+  .page-title span{color:var(--accent2);}
+  .page-subtitle{text-align:center;color:var(--text-dim);margin-bottom:8px;font-size:13px;letter-spacing:2px;}
+
+  .currency-bar{
+    display:flex;justify-content:center;align-items:center;gap:30px;margin-bottom:40px;flex-wrap:wrap;
+  }
+  .currency-item{
+    background:var(--bg2);border:1px solid var(--border);padding:12px 24px;text-align:center;min-width:120px;
+  }
+  .currency-val{font-size:24px;font-weight:800;color:var(--accent2);}
+  .currency-label{font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:2px;margin-top:4px;}
+
+  .shop-tabs{display:flex;gap:4px;margin-bottom:30px;justify-content:center;flex-wrap:wrap;}
+  .shop-tab{
+    background:var(--bg3);color:var(--text-dim);border:1px solid var(--border);
+    padding:10px 20px;font-family:inherit;font-weight:700;font-size:11px;
+    text-transform:uppercase;letter-spacing:2px;cursor:pointer;transition:all 0.3s;
+  }
+  .shop-tab.active,.shop-tab:hover{color:var(--accent);border-color:var(--accent);}
+
+  .shop-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:20px;}
+
+  .shop-item{
+    background:var(--bg3);border:1px solid var(--border);padding:20px;text-align:center;transition:all 0.3s;position:relative;overflow:hidden;
+  }
+  .shop-item:hover{border-color:var(--accent);transform:translateY(-4px);box-shadow:0 10px 30px rgba(255,61,0,0.1);}
+  .shop-item.owned{border-color:var(--accent2);opacity:0.7;}
+  .shop-item.owned::after{content:'OWNED';position:absolute;top:10px;right:10px;background:var(--accent2);color:#000;font-size:9px;font-weight:800;padding:2px 8px;letter-spacing:1px;}
+
+  .item-icon{font-size:64px;margin-bottom:12px;display:block;}
+  .item-name{font-size:14px;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;}
+  .item-desc{font-size:11px;color:var(--text-dim);margin-bottom:14px;line-height:1.5;min-height:32px;}
+  .item-rarity{font-size:10px;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;}
+  .rarity-common{color:#888;}
+  .rarity-rare{color:#0088ff;}
+  .rarity-epic{color:#aa44ff;}
+  .rarity-legendary{color:#ffd700;}
+
+  .buy-btn{
+    width:100%;background:var(--accent);color:#fff;border:none;padding:10px;font-family:inherit;font-weight:700;font-size:12px;
+    text-transform:uppercase;letter-spacing:2px;cursor:pointer;transition:all 0.3s;
+  }
+  .buy-btn:hover{box-shadow:var(--glow) var(--accent);}
+  .buy-btn:disabled{background:#333;color:#666;cursor:not-allowed;box-shadow:none;}
+
+  footer{
+    position:relative;z-index:1;padding:40px 20px;border-top:1px solid var(--border);text-align:center;
+  }
+  footer .footer-text{color:var(--text-dim);font-size:12px;}
 </style>
 </head>
 <body>
-<header>
-  <div class="logo">SK<span>RT</span> DERBY</div>
-  <nav>
-    <a href="/">Home</a><a href="/play">Play</a><a href="/leaderboard">Leaderboard</a><a href="/shop" class="active">Shop</a>
-  </nav>
-</header>
-<main>
-  <h1>Garage <span>Shop</span></h1>
-  <div class="balance" id="balance">🪙 Loading...</div>
-  <div class="tabs">
-    <div class="tab active" onclick="filter('all')">All</div>
-    <div class="tab" onclick="filter('skin')">Skins</div>
-    <div class="tab" onclick="filter('upgrade')">Upgrades</div>
-    <div class="tab" onclick="filter('cosmetic')">Cosmetics</div>
+<div class="bg-grid"></div>
+
+<nav>
+  <div class="nav-inner">
+    <a href="/" class="nav-logo">SKRT<span>.DERBY</span></a>
+    <ul class="nav-links">
+      <li><a href="/">Home</a></li>
+      <li><a href="/play">Play</a></li>
+      <li><a href="/leaderboard">Leaderboard</a></li>
+      <li><a href="/shop" class="active">Shop</a></li>
+      <li><a href="/profile">Profile</a></li>
+    </ul>
+    <a href="/play" class="nav-cta">PLAY NOW</a>
   </div>
-  <div class="grid" id="shopGrid"><p style="color:var(--muted);text-align:center;grid-column:1/-1">Loading...</p></div>
-</main>
-<footer>© 2026 SKRT Derby</footer>
+</nav>
+
+<div class="container">
+  <h1 class="page-title">🛒 <span>SHOP</span></h1>
+  <p class="page-subtitle">CUSTOMIZE YOUR RIDE</p>
+
+  <div class="currency-bar">
+    <div class="currency-item">
+      <div class="currency-val" id="credits">1,250</div>
+      <div class="currency-label">Credits</div>
+    </div>
+    <div class="currency-item">
+      <div class="currency-val" id="tokens">5</div>
+      <div class="currency-label">Premium Tokens</div>
+    </div>
+  </div>
+
+  <div class="shop-tabs">
+    <button class="shop-tab active" data-cat="skins">Car Skins</button>
+    <button class="shop-tab" data-cat="upgrades">Upgrades</button>
+    <button class="shop-tab" data-cat="effects">Effects</button>
+    <button class="shop-tab" data-cat="premium">Premium</button>
+  </div>
+
+  <div class="shop-grid" id="shop-grid">
+    <!-- Populated by JS -->
+  </div>
+</div>
+
+<footer>
+  <p class="footer-text">&copy; 2026 SKRT DERBY. All rights reserved.</p>
+</footer>
+
 <script>
-let items=[],coins=0,inventory=[];
-async function load(){
-  try{
-    const[s,u]=await Promise.all([fetch('/api/shop/items'),fetch('/api/users/1')]);
-    items=await s.json();
-    const ud=await u.json();
-    coins=ud.user?.coins||0;
-    inventory=(ud.inventory||[]).map(i=>i.id);
-    document.getElementById('balance').textContent=`🪙 ${coins.toLocaleString()} Coins`;
-    render('all');
-  }catch(e){}
-}
-function filter(cat){
-  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
-  event.target.classList.add('active');
-  render(cat);
-}
-function render(cat){
-  const grid=document.getElementById('shopGrid');
-  const filtered=cat==='all'?items:items.filter(i=>i.category===cat);
-  grid.innerHTML=filtered.map(i=>{
-    const owned=inventory.includes(i.id);
-    const canAfford=coins>=i.price;
-    const rarityColors={common:'#777',rare:var(--blue),epic:'#a855f7',legendary:var(--gold)};
-    return `<div class="item${owned?' owned':''}">
-      <div class="icon">${getIcon(i.category)}</div>
-      <h3>${i.name}</h3>
-      <div class="category" style="color:${rarityColors[i.rarity]||'#777'}">${i.rarity} ${i.category}</div>
-      <div class="price">🪙 ${i.price.toLocaleString()}</div>
-      <button class="btn ${owned?'btn-buy':'btn-buy'}" ${owned||!canAfford?'disabled':''} onclick="buy(${i.id})">${owned?'Owned':!canAfford?'Not enough coins':'Buy Now'}</button>
-    </div>`;
-  }).join('');
-}
-function getIcon(cat){ return cat==='skin'?'🎨':cat==='upgrade'?'🔧':'✨'; }
-async function buy(id){
-  try{
-    const r=await fetch('/api/shop/buy',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user_id:1,item_id:id})});
-    const d=await r.json();
-    if(d.error) alert(d.error);
-    else { coins=d.coins_left; inventory.push(id); document.getElementById('balance').textContent=`🪙 ${coins.toLocaleString()} Coins`; filter(document.querySelector('.tab.active').textContent.toLowerCase()); }
-  }catch(e){}
-}
-load();
+  const shopItems = {
+    skins: [
+      { name: 'Default Red', desc: 'Classic red paint job', icon: '🏎️', rarity: 'common', price: 0, owned: true },
+      { name: 'Neon Green', desc: 'Glowing green finish', icon: '🚗', rarity: 'common', price: 500, owned: false },
+      { name: 'Midnight Blue', desc: 'Deep blue metallic', icon: '🚙', rarity: 'common', price: 500, owned: false },
+      { name: 'Flame Racer', desc: 'Hot rod flames design', icon: '🔥', rarity: 'rare', price: 1500, owned: false },
+      { name: 'Cyber Phantom', desc: 'Holographic neon pattern', icon: '👻', rarity: 'rare', price: 2000, owned: false },
+      { name: 'Toxic Waste', desc: 'Radioactive green glow', icon: '☢️', rarity: 'epic', price: 5000, owned: false },
+      { name: 'Diamond Crusher', desc: 'Crystal-encrusted armor', icon: '💎', rarity: 'epic', price: 7500, owned: false },
+      { name: 'Inferno Lord', desc: 'Legendary fire aura', icon: '👑', rarity: 'legendary', price: 15000, owned: false },
+    ],
+    upgrades: [
+      { name: 'Speed Boost I', desc: '+10% max speed', icon: '⚡', rarity: 'common', price: 300, owned: false },
+      { name: 'Armor Plating I', desc: '+15% collision defense', icon: '🛡️', rarity: 'common', price: 300, owned: false },
+      { name: 'Turbo Charger', desc: 'Longer boost duration', icon: '🔋', rarity: 'rare', price: 1000, owned: false },
+      { name: 'Reinforced Frame', desc: '+25% health capacity', icon: '🔧', rarity: 'rare', price: 1200, owned: false },
+      { name: 'Quick Steering', desc: 'Faster turn response', icon: '🎯', rarity: 'epic', price: 3000, owned: false },
+      { name: 'Ram Plating', desc: 'Deal extra ram damage', icon: '💥', rarity: 'epic', price: 4000, owned: false },
+    ],
+    effects: [
+      { name: 'Tire Smoke', desc: 'Leave colored tire marks', icon: '💨', rarity: 'common', price: 400, owned: false },
+      { name: 'Sparks Trail', desc: 'Sparks fly on turns', icon: '✨', rarity: 'rare', price: 800, owned: false },
+      { name: 'Neon Undercarriage', desc: 'Glowing under-car lights', icon: '💡', rarity: 'rare', price: 1000, owned: false },
+      { name: 'Explosion FX', desc: 'Special wreck animation', icon: '🎆', rarity: 'epic', price: 2500, owned: false },
+      { name: 'Rainbow Boost', desc: 'Rainbow boost flame', icon: '🌈', rarity: 'legendary', price: 10000, owned: false },
+    ],
+    premium: [
+      { name: 'Gold Pass', desc: 'Double credits forever', icon: '🏅', rarity: 'legendary', price: '3 Tokens', owned: false, tokenPrice: true },
+      { name: 'VIP Badge', desc: 'Exclusive name color', icon: '⭐', rarity: 'epic', price: '5 Tokens', owned: false, tokenPrice: true },
+      { name: 'Custom Plate', desc: 'Personalized license plate', icon: '📛', rarity: 'rare', price: '2 Tokens', owned: false, tokenPrice: true },
+      { name: 'Announcer Pack', desc: 'Custom game announcer', icon: '📢', rarity: 'epic', price: '4 Tokens', owned: false, tokenPrice: true },
+    ],
+  };
+
+  let currentCat = 'skins';
+
+  function renderShop() {
+    const grid = document.getElementById('shop-grid');
+    const items = shopItems[currentCat] || [];
+
+    grid.innerHTML = items.map(item => `
+      <div class="shop-item ${item.owned ? 'owned' : ''}">
+        <span class="item-icon">${item.icon}</span>
+        <div class="item-name">${item.name}</div>
+        <div class="item-desc">${item.desc}</div>
+        <div class="item-rarity rarity-${item.rarity}">${item.rarity.toUpperCase()}</div>
+        <button class="buy-btn" ${item.owned ? 'disabled' : ''} onclick="buyItem('${item.name}')">
+          ${item.owned ? 'OWNED' : item.price}
+        </button>
+      </div>
+    `).join('');
+  }
+
+  window.buyItem = function(name) {
+    alert(`Purchase feature coming soon! You want to buy: ${name}`);
+    // Would connect to API: POST /api/shop/buy
+  };
+
+  document.querySelectorAll('.shop-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.shop-tab').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentCat = btn.dataset.cat;
+      renderShop();
+    });
+  });
+
+  renderShop();
+
+  // Try to load from API
+  fetch('/api/shop/items')
+    .then(r => r.json())
+    .then(data => {
+      if (data && data.items) {
+        // Merge API data
+        console.log('Shop items loaded:', data);
+      }
+    })
+    .catch(() => {});
 </script>
 </body>
 </html>
