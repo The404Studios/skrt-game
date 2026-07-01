@@ -146,7 +146,7 @@ export default class GameEngine {
       carType: 'brawler',
       playerName: 'Racer',
       arenaLayout: 'classic',
-      gameMode: 'deathmatch', // deathmatch, team, battleroyale
+      gameMode: 'deathmatch', // deathmatch, team, battleroyale, koth
     };
 
     // AI drivers
@@ -424,6 +424,18 @@ export default class GameEngine {
 
     // Team assignments for team deathmatch
     const numTeams = this.config.gameMode === 'team' ? 2 : 0;
+
+    // KOTH: initialize hill zone
+    if (this.config.gameMode === 'koth') {
+      this.hillZone = {
+        x: this.arena.x + this.arena.width / 2,
+        y: this.arena.y + this.arena.height / 2,
+        radius: 80,
+        moveTimer: 20,
+      };
+      this.hillScores = {}; // carId -> time in zone
+      this.hillScoreTarget = 60; // 60 seconds to win
+    }
     const playerEntries = Object.entries(players);
     const numAI = playerEntries.filter(([id, p]) => !p.isPlayer).length;
     const teamAI = Math.ceil(numAI / numTeams);
@@ -913,6 +925,51 @@ export default class GameEngine {
       }
     }
 
+    // ── King of the Hill ────────────────────────────
+    if (this.config.gameMode === 'koth' && this.hillZone) {
+      // Move hill periodically
+      this.hillZone.moveTimer -= dt;
+      if (this.hillZone.moveTimer <= 0) {
+        this.hillZone.moveTimer = 15 + Math.random() * 15;
+        const aw = this.arena.width, ah = this.arena.height;
+        this.hillZone.x = this.arena.x + 80 + Math.random() * (aw - 160);
+        this.hillZone.y = this.arena.y + 80 + Math.random() * (ah - 160);
+        this.renderer.spawnParticles(this.hillZone.x, this.hillZone.y, 12, '#ffd700', 4, 1);
+      }
+
+      // Track hill occupation
+      let hillOccupied = false;
+      for (const car of this.cars) {
+        if (car.health <= 0) continue;
+        const dx = car.x - this.hillZone.x;
+        const dy = car.y - this.hillZone.y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        if (dist < this.hillZone.radius) {
+          this.hillScores[car.id] = (this.hillScores[car.id] || 0) + dt;
+          // Visual feedback
+          if (car.isPlayer) {
+            this.renderer.spawnParticles(car.x, car.y, 1, '#ffd700', 0.5, 0.3);
+          }
+          hillOccupied = true;
+
+          // Check win condition
+          if (this.hillScores[car.id] >= this.hillScoreTarget) {
+            // Crown the winner
+            this.score += 500;
+            this._endGame();
+            return;
+          }
+        }
+      }
+
+      // Hill pulse when occupied
+      if (hillOccupied) {
+        this.hillZone._pulse = (this.hillZone._pulse || 0) + dt * 3;
+      } else {
+        this.hillZone._pulse = Math.max(0, (this.hillZone._pulse || 0) - dt);
+      }
+    }
+
     // ── Team deathmatch check ─────────────────────────
     if (this.config.gameMode === 'team') {
       const team0Alive = this.cars.some(c => c.team === 0 && c.health > 0);
@@ -1023,6 +1080,11 @@ export default class GameEngine {
     // Draw shrink zone for battle royale
     if (this.config.gameMode === 'battleroyale' && this.shrinkZone) {
       this._drawShrinkZone();
+    }
+
+    // Draw hill zone for KOTH
+    if (this.config.gameMode === 'koth' && this.hillZone) {
+      this._drawHillZone();
     }
 
     // Draw kill feed
@@ -1236,6 +1298,66 @@ export default class GameEngine {
     ctx.beginPath();
     ctx.arc(z.x, z.y, this.shrinkTarget.radius, 0, Math.PI * 2);
     ctx.stroke();
+  }
+
+  // ── Hill Zone Drawing (KOTH) ──────────────────────
+
+  _drawHillZone() {
+    const ctx = this.renderer.ctx;
+    const h = this.hillZone;
+    if (!h) return;
+
+    const pulse = 1 + Math.sin((h._pulse || 0)) * 0.15;
+    const r = h.radius * pulse;
+
+    // Outer glow ring
+    ctx.fillStyle = 'rgba(255, 215, 0, 0.06)';
+    ctx.beginPath();
+    ctx.arc(h.x, h.y, r + 30, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Hill zone fill
+    ctx.fillStyle = 'rgba(255, 215, 0, 0.12)';
+    ctx.beginPath();
+    ctx.arc(h.x, h.y, r, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Crown border
+    ctx.strokeStyle = '#ffd700';
+    ctx.lineWidth = 3;
+    ctx.shadowColor = '#ffd700';
+    ctx.shadowBlur = 25;
+    ctx.setLineDash([8, 4]);
+    ctx.beginPath();
+    ctx.arc(h.x, h.y, r, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.shadowBlur = 0;
+
+    // Crown icon in center
+    ctx.fillStyle = '#ffd700';
+    ctx.font = 'bold 20px monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('👑', h.x, h.y);
+
+    // Move timer
+    ctx.fillStyle = '#ffd70088';
+    ctx.font = '10px monospace';
+    ctx.fillText(`Moving in ${Math.ceil(h.moveTimer)}s`, h.x, h.y + r + 14);
+
+    // Top scores
+    const sorted = Object.entries(this.hillScores || {})
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3);
+    for (let i = 0; i < sorted.length; i++) {
+      const car = this.cars.find(c => c.id === sorted[i][0]);
+      const name = car ? (car.isPlayer ? 'YOU' : car.name) : '?';
+      const secs = sorted[i][1].toFixed(1);
+      ctx.fillStyle = i === 0 ? '#ffd700' : i === 1 ? '#c0c0c0' : '#cd7f32';
+      ctx.font = 'bold 11px monospace';
+      ctx.fillText(`${i+1}. ${name}: ${secs}s`, h.x, h.y + r + 28 + i * 14);
+    }
   }
 
   // ── Chat Drawing ─────────────────────────────────
