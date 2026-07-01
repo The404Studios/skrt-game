@@ -3,3 +3,5 @@ flask-cors>=4.0
 flask-sock>=0.7
 requests>=2.31
 gunicorn>=21.2
+gevent>=24.2
+gevent-websocket>=0.10
