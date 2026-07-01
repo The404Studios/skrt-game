@@ -254,6 +254,25 @@ def api_bounty():
         'top_today': dict(top) if top else None,
     })
 
+# ── Daily Challenges ────────────────────────────────
+
+CHALLENGES = [
+    {'id': 'kill_5', 'name': 'Get 5 Kills', 'target': 5, 'reward': 200, 'metric': 'kills'},
+    {'id': 'score_5000', 'name': 'Score 5,000 Points', 'target': 5000, 'reward': 250, 'metric': 'score'},
+    {'id': 'survive_90', 'name': 'Survive 90 Seconds', 'target': 90, 'reward': 150, 'metric': 'survival'},
+    {'id': 'win_match', 'name': 'Win a Match', 'target': 1, 'reward': 300, 'metric': 'wins'},
+    {'id': 'powerup_5', 'name': 'Collect 5 Power-ups', 'target': 5, 'reward': 100, 'metric': 'powerups'},
+]
+
+@app.route('/api/challenges')
+def api_challenges():
+    """Get today's challenges"""
+    today = datetime.now().strftime('%Y-%m-%d')
+    return jsonify({
+        'date': today,
+        'challenges': CHALLENGES,
+    })
+
 # ── WebSocket Game Server ──────────────────────────────
 connected_players = {}
 game_rooms = {}

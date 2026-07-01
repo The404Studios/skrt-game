@@ -532,6 +532,11 @@
     <br><span style="color:var(--text-dim);font-size:11px;">Top score today wins! Current leader: <span id="bounty-leader">--</span></span>
   </div>
 
+  <div id="challenges-section" style="margin-top:14px;display:none;">
+    <div style="color:var(--accent2);font-size:11px;text-transform:uppercase;letter-spacing:2px;text-align:center;margin-bottom:8px;">🎯 Daily Challenges</div>
+    <div id="challenges-list" style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;"></div>
+  </div>
+
   <div class="hero-stats">
     <div class="hero-stat">
       <div class="num" id="playerCount">12,847</div>
@@ -693,6 +698,22 @@
           document.getElementById('bounty-leader').textContent = 'No scores yet - be the first!';
         }
       }
+    })
+    .catch(() => {});
+
+  // Load challenges
+  fetch('/api/challenges')
+    .then(r => r.json())
+    .then(data => {
+      const section = document.getElementById('challenges-section');
+      const list = document.getElementById('challenges-list');
+      section.style.display = 'block';
+      data.challenges.forEach(c => {
+        const el = document.createElement('div');
+        el.style.cssText = 'background:rgba(0,255,136,0.05);border:1px solid rgba(0,255,136,0.2);padding:6px 12px;font-size:10px;letter-spacing:1px;';
+        el.innerHTML = `${c.name}: <span style="color:#ffd700;font-weight:700;">${c.reward}🪙</span>`;
+        list.appendChild(el);
+      });
     })
     .catch(() => {});
 
