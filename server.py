@@ -65,6 +65,14 @@ def init_db():
             FOREIGN KEY(user_id) REFERENCES users(id),
             FOREIGN KEY(item_id) REFERENCES shop_items(id)
         );
+        CREATE TABLE IF NOT EXISTS bounties (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            date TEXT UNIQUE,
+            reward_coins INTEGER DEFAULT 500,
+            winner_user_id INTEGER,
+            winning_score INTEGER,
+            awarded INTEGER DEFAULT 0
+        );
     ''')
     conn.commit()
     conn.close()
@@ -214,6 +222,37 @@ def api_leaderboard():
     ''').fetchall()
     conn.close()
     return jsonify([dict(r) for r in rows])
+
+# ── Daily Bounty ─────────────────────────────────────
+
+@app.route('/api/bounty')
+def api_bounty():
+    """Get today's bounty status"""
+    today = datetime.now().strftime('%Y-%m-%d')
+    conn = get_db()
+    
+    # Ensure today's bounty exists
+    bounty = conn.execute('SELECT * FROM bounties WHERE date = ?', [today]).fetchone()
+    if not bounty:
+        conn.execute('INSERT OR IGNORE INTO bounties (date, reward_coins) VALUES (?, 500)', [today])
+        conn.commit()
+        bounty = conn.execute('SELECT * FROM bounties WHERE date = ?', [today]).fetchone()
+    
+    # Get today's top score
+    top = conn.execute('''
+        SELECT s.*, u.username FROM scores s 
+        JOIN users u ON s.user_id = u.id 
+        WHERE date(s.played_at) = ? 
+        ORDER BY s.score DESC LIMIT 1
+    ''', [today]).fetchone()
+    
+    conn.close()
+    
+    return jsonify({
+        'bounty': dict(bounty) if bounty else None,
+        'reward': 500,
+        'top_today': dict(top) if top else None,
+    })
 
 # ── WebSocket Game Server ──────────────────────────────
 connected_players = {}

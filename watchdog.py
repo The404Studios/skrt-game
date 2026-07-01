@@ -15,7 +15,7 @@ def start_tunnel():
     print("[WATCHDOG] Starting tunnel...")
     proc = subprocess.Popen(
         ['ssh', '-o', 'StrictHostKeyChecking=no', '-o', 'ServerAliveInterval=15',
-         '-o', 'ServerAliveCountMax=3', '-R', f'{TUNNEL_PORT}:localhost:{TUNNEL_PORT}', 'serveo.net'],
+         '-o', 'ServerAliveCountMax=3', '-R', f'{TUNNEL_PORT}:localhost:{GAME_PORT}', 'serveo.net'],
         stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
     )
     

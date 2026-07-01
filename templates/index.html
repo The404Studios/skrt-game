@@ -527,6 +527,11 @@
   </p>
   <a href="/play" class="hero-cta">▶ PLAY NOW</a>
 
+  <div id="bounty-banner" style="margin-top:20px;padding:12px 24px;background:rgba(255,215,0,0.1);border:1px solid #ffd70033;border-radius:4px;text-align:center;display:none;">
+    <span style="color:#ffd700;font-weight:700;">💰 DAILY BOUNTY: <span id="bounty-reward">500</span> COINS</span>
+    <br><span style="color:var(--text-dim);font-size:11px;">Top score today wins! Current leader: <span id="bounty-leader">--</span></span>
+  </div>
+
   <div class="hero-stats">
     <div class="hero-stat">
       <div class="num" id="playerCount">12,847</div>
@@ -669,6 +674,24 @@
         // Update community section if top player exists
         const topName = data[0].username || 'Player';
         const topScore = (data[0].total || data[0].score || 0).toLocaleString();
+      }
+    })
+    .catch(() => {});
+
+  // Load daily bounty
+  fetch('/api/bounty')
+    .then(r => r.json())
+    .then(data => {
+      if (data && data.reward) {
+        const banner = document.getElementById('bounty-banner');
+        banner.style.display = 'block';
+        document.getElementById('bounty-reward').textContent = data.reward;
+        if (data.top_today) {
+          document.getElementById('bounty-leader').textContent = 
+            `${data.top_today.username} (${data.top_today.score.toLocaleString()})`;
+        } else {
+          document.getElementById('bounty-leader').textContent = 'No scores yet - be the first!';
+        }
       }
     })
     .catch(() => {});

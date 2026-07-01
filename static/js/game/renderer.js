@@ -160,6 +160,11 @@ class Renderer {
     // --- Walls ---
     this._drawWalls(gameState.arena.walls);
 
+    // --- Checkpoints (race mode) ---
+    if (gameState.checkpoints && gameState.checkpoints.length > 0) {
+      this._drawCheckpoints(gameState.checkpoints, gameState.carCheckpoint);
+    }
+
     // --- Power-ups ---
     this._drawPowerUps(gameState.powerUps);
 
@@ -257,6 +262,43 @@ class Renderer {
           ctx.fillRect(wall.x + wall.width - 4, wall.y + i, 4, stripeW);
         }
       }
+    }
+  }
+
+  _drawCheckpoints(checkpoints, carCheckpoint) {
+    const ctx = this.ctx;
+    for (const cp of checkpoints) {
+      ctx.save();
+      ctx.translate(cp.x, cp.y);
+      ctx.rotate(cp.angle);
+
+      // Gate posts
+      const halfW = cp.width / 2;
+      const postH = 30;
+      
+      // Post glow
+      ctx.shadowColor = '#00ff88';
+      ctx.shadowBlur = 12;
+      
+      // Left post
+      ctx.fillStyle = '#00ff8866';
+      ctx.fillRect(-halfW - 4, -postH / 2, 6, postH);
+      // Right post
+      ctx.fillRect(halfW - 2, -postH / 2, 6, postH);
+      
+      // Top bar
+      ctx.fillStyle = '#00ff8844';
+      ctx.fillRect(-halfW - 2, -postH / 2 - 4, cp.width, 4);
+      
+      ctx.shadowBlur = 0;
+
+      // Checkpoint number
+      ctx.fillStyle = '#00ff88';
+      ctx.font = 'bold 11px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(`CP${cp.index + 1}`, 0, -postH / 2 - 10);
+
+      ctx.restore();
     }
   }
 
@@ -574,7 +616,17 @@ class Renderer {
     // Timer
     ctx.font = 'bold 14px monospace';
     ctx.fillStyle = '#ffffff';
-    ctx.fillText(`TIME: ${gs.timeRemaining}s`, this.width / 2, 40);
+    if (gs.gameMode === 'race') {
+      // Race mode: show lap counter instead of timer
+      const pCar = gs.cars.find(c => c.isPlayer);
+      const pInfo = pCar ? gs.carCheckpoint?.[pCar.id] : null;
+      const lap = pInfo ? pInfo.lap + 1 : 1;
+      const cp = pInfo ? pInfo.checkpoint + 1 : 1;
+      const totalCP = gs.checkpoints ? gs.checkpoints.length : 6;
+      ctx.fillText(`LAP ${lap}/${gs.totalLaps || 3} · CP ${cp}/${totalCP}`, this.width / 2, 40);
+    } else {
+      ctx.fillText(`TIME: ${gs.timeRemaining}s`, this.width / 2, 40);
+    }
 
     // Alive count
     ctx.textAlign = 'right';

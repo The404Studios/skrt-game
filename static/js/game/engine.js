@@ -18,6 +18,8 @@ const AI_NAMES = ['CrashBot', 'Smasher', 'WreckKing', 'MetalMan', 'TurboG', 'Rus
                    'Venom', 'Blaze', 'Phantom', 'Crusher', 'Razor', 'Thunder', 'Inferno', 'Glitch'];
 
 const ARENA_LAYOUTS = ['classic', 'circular', 'figure8', 'cross', 'gauntlet', 'open'];
+const GAME_MODES = ['deathmatch', 'team', 'battleroyale', 'race'];
+const RACE_LAPS = 3;
 
 function generateArena(layout, width, height, random) {
   const margin = 40;
@@ -179,6 +181,12 @@ export default class GameEngine {
     // Spectator mode
     this.spectating = null;  // car id being spectated
     this.skidMarks = [];
+    // Race mode
+    this.checkpoints = [];
+    this.carCheckpoint = {};   // carId -> { checkpoint, lap, finished, finishTime }
+    this.raceFinished = false;
+    this.raceFinishOrder = [];
+    this.raceStartTime = 0;
   }
 
   setConfig(cfg) {
@@ -403,6 +411,17 @@ export default class GameEngine {
       };
     }
 
+    // Race mode: generate checkpoints
+    if (this.config.gameMode === 'race') {
+      this.checkpoints = this._generateCheckpoints(this.arena, random);
+      this.carCheckpoint = {};
+      this.raceFinished = false;
+      this.raceFinishOrder = [];
+      this.raceStartTime = 0;
+    } else {
+      this.checkpoints = [];
+    }
+
     // Team assignments for team deathmatch
     const numTeams = this.config.gameMode === 'team' ? 2 : 0;
     const playerEntries = Object.entries(players);
@@ -466,6 +485,13 @@ export default class GameEngine {
       }
     }
 
+    // Init race checkpoint tracking
+    if (this.config.gameMode === 'race') {
+      for (const car of this.cars) {
+        this.carCheckpoint[car.id] = { checkpoint: 0, lap: 0, finished: false, finishTime: 0 };
+      }
+    }
+
     // Start music
     this.audio.startMusic();
     this.audio.setMasterVolume(this.config.volume);
@@ -491,6 +517,27 @@ export default class GameEngine {
       spawns.push([x, y]);
     }
     return spawns;
+  }
+
+  _generateCheckpoints(arena, random) {
+    // Place 5-8 checkpoint gates around the arena in a rough circuit
+    const numCP = 6;
+    const cps = [];
+    const ax = arena.x, ay = arena.y, aw = arena.width, ah = arena.height;
+    const cx = ax + aw / 2, cy = ay + ah / 2;
+    const rx = aw * 0.35, ry = ah * 0.35;
+    
+    for (let i = 0; i < numCP; i++) {
+      const angle = (i / numCP) * Math.PI * 2 - Math.PI / 2 + (random() - 0.5) * 0.3;
+      cps.push({
+        x: cx + Math.cos(angle) * rx,
+        y: cy + Math.sin(angle) * ry,
+        angle: angle + Math.PI / 2, // perpendicular to circuit direction
+        index: i,
+        width: 80,
+      });
+    }
+    return cps;
   }
 
   // ── Game Loop ───────────────────────────────────────
@@ -876,17 +923,79 @@ export default class GameEngine {
       }
     }
 
+    // ── Race Mode: checkpoint & lap tracking ────────────
+    if (this.config.gameMode === 'race' && !this.raceFinished) {
+      // Start race timer on first frame
+      if (this.raceStartTime === 0) this.raceStartTime = performance.now() / 1000;
+      
+      for (const car of this.cars) {
+        if (car.health <= 0) continue;
+        const info = this.carCheckpoint[car.id];
+        if (!info || info.finished) continue;
+        
+        // Check if car passes through next checkpoint
+        const cp = this.checkpoints[info.checkpoint];
+        if (cp) {
+          const dx = car.x - cp.x;
+          const dy = car.y - cp.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < cp.width / 2 + 10) {
+            info.checkpoint++;
+            if (info.checkpoint >= this.checkpoints.length) {
+              info.checkpoint = 0;
+              info.lap++;
+              if (car.isPlayer) {
+                this.renderer.spawnParticles(car.x, car.y, 12, '#00ff88', 2, 0.6);
+              }
+              if (info.lap >= RACE_LAPS) {
+                info.finished = true;
+                info.finishTime = performance.now() / 1000 - this.raceStartTime;
+                this.raceFinishOrder.push(car.id);
+                if (car.isPlayer) {
+                  this.renderer.addFlash('#00ff8833', 0.4);
+                  this.renderer.spawnParticles(car.x, car.y, 30, '#00ff88', 5, 1.0);
+                  this.audio.powerUp();
+                }
+              }
+            }
+          }
+        }
+      }
+      
+      // End race if player finished or all cars finished
+      const playerCar = this.cars.find(c => c.isPlayer);
+      const playerInfo = playerCar ? this.carCheckpoint[playerCar.id] : null;
+      const allFinished = this.cars.every(c => {
+        const i = this.carCheckpoint[c.id];
+        return !i || i.finished || c.health <= 0;
+      });
+      if ((playerInfo && playerInfo.finished) || allFinished) {
+        this.raceFinished = true;
+        // Mark any unfinished cars at current position
+        for (const car of this.cars) {
+          const info = this.carCheckpoint[car.id];
+          if (info && !info.finished && car.health > 0) {
+            info.finishTime = performance.now() / 1000 - this.raceStartTime + 999;
+            this.raceFinishOrder.push(car.id);
+          }
+        }
+        this._endGame();
+        return;
+      }
+    }
+
     // ── Update kill feed ──────────────────────────────
     for (let i = this.killFeed.length - 1; i >= 0; i--) {
       this.killFeed[i].timer -= dt;
       if (this.killFeed[i].timer <= 0) this.killFeed.splice(i, 1);
     }
 
-    // Game over check
+    // Game over check (skip alive check for race mode)
+    const isRace = this.config.gameMode === 'race';
     const alivePlayers = this.cars.filter(c => c.health > 0);
     const playerAlive = alivePlayers.some(c => c.isPlayer);
 
-    if (this.timeRemaining <= 0 || !playerAlive || (alivePlayers.length <= 1 && this.cars.length > 1 && this.config.gameMode !== 'team')) {
+    if (this.timeRemaining <= 0 || !playerAlive || (!isRace && alivePlayers.length <= 1 && this.cars.length > 1 && this.config.gameMode !== 'team')) {
       this._endGame();
       return;
     }
@@ -899,6 +1008,12 @@ export default class GameEngine {
       score: this.score,
       kills: this.kills,
       timeRemaining: Math.ceil(this.timeRemaining),
+      checkpoints: this.checkpoints,
+      carCheckpoint: this.carCheckpoint,
+      gameMode: this.config.gameMode,
+      raceFinished: this.raceFinished,
+      raceFinishOrder: this.raceFinishOrder,
+      totalLaps: RACE_LAPS,
     };
     this.renderer.render(gs);
 
@@ -991,7 +1106,26 @@ export default class GameEngine {
 
     ctx.fillStyle = '#ffffff';
     ctx.font = '18px monospace';
-    ctx.fillText(`Score: ${this.score} | Kills: ${this.kills}`, this.renderer.width / 2, this.renderer.height / 2 - 20);
+    if (this.config.gameMode === 'race') {
+      // Race results
+      const playerInfo = this.carCheckpoint[this.cars.find(c => c.isPlayer)?.id];
+      const position = this.raceFinishOrder.indexOf(this.cars.find(c => c.isPlayer)?.id) + 1;
+      const time = playerInfo ? playerInfo.finishTime : 0;
+      ctx.fillText(`Position: ${position || 'DNF'} | Time: ${time.toFixed(1)}s`, this.renderer.width / 2, this.renderer.height / 2 - 20);
+      
+      // Finish order
+      ctx.font = '13px monospace';
+      ctx.fillText('--- FINISH ORDER ---', this.renderer.width / 2, this.renderer.height / 2 + 15);
+      this.raceFinishOrder.forEach((carId, i) => {
+        const car = this.cars.find(c => c.id === carId);
+        const info = this.carCheckpoint[carId];
+        const name = car ? (car.isPlayer ? 'YOU' : car.name) : 'Unknown';
+        const timeStr = info ? info.finishTime.toFixed(1) + 's' : '--';
+        ctx.fillStyle = car && car.isPlayer ? '#00ff88' : '#888';
+        ctx.fillText(`${i+1}. ${name} - ${timeStr}`, this.renderer.width / 2, this.renderer.height / 2 + 40 + i * 20);
+      });
+    } else {
+      ctx.fillText(`Score: ${this.score} | Kills: ${this.kills}`, this.renderer.width / 2, this.renderer.height / 2 - 20);
 
     // Rankings
     ctx.font = '13px monospace';
