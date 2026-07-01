@@ -50,13 +50,7 @@
   .profile-info h2{font-size:22px;font-weight:800;color:var(--accent);margin-bottom:4px;}
   .profile-info .title{font-size:12px;color:var(--accent2);letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;}
   .profile-info .bio{font-size:13px;color:var(--text-dim);line-height:1.6;}
-  .discord-badge{
-    display:inline-flex;align-items:center;gap:6px;
-    background:#5865F2;color:#fff;padding:4px 12px;font-size:11px;font-weight:700;
-    text-transform:uppercase;letter-spacing:1px;margin-top:8px;
-  }
 
-  /* Stats cards */
   .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:40px;}
   .stat-card{
     background:var(--bg3);border:1px solid var(--border);padding:20px;text-align:center;transition:all 0.3s;
@@ -66,51 +60,26 @@
   .stat-card .stat-value{font-size:24px;font-weight:800;color:var(--accent);margin-bottom:4px;}
   .stat-card .stat-label{font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:2px;}
 
-  /* Achievements */
+  .spinner{text-align:center;padding:40px;color:var(--text-dim);}
+  .spinner::after{content:'...';animation:dots 1.5s infinite;}
+  @keyframes dots{0%,20%{content:'.';}40%{content:'..';}60%,100%{content:'...';}}
+
   .section-title{font-size:18px;font-weight:800;color:var(--text);margin-bottom:20px;text-transform:uppercase;letter-spacing:2px;}
   .section-title span{color:var(--accent2);}
 
-  .achievements-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:40px;}
-  .achievement{
-    background:var(--bg3);border:1px solid var(--border);padding:16px;display:flex;gap:12px;align-items:center;transition:all 0.3s;
-  }
-  .achievement.unlocked{border-color:var(--accent2);}
-  .achievement .ach-icon{font-size:28px;flex-shrink:0;}
-  .achievement .ach-info h4{font-size:12px;color:var(--text);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:2px;}
-  .achievement .ach-info p{font-size:10px;color:var(--text-dim);}
-  .achievement.locked{opacity:0.4;}
-
-  /* Match history */
   .match-list{display:flex;flex-direction:column;gap:8px;margin-bottom:40px;}
   .match-item{
-    display:grid;grid-template-columns:80px 1fr 80px 80px 100px;
+    display:grid;grid-template-columns:100px 1fr 80px 60px;
     padding:12px 16px;background:var(--bg3);border:1px solid var(--border);
     align-items:center;gap:12px;font-size:12px;
   }
-  .match-item.win{border-left:3px solid var(--accent2);}
-  .match-item.loss{border-left:3px solid var(--accent);}
-  .match-date{color:var(--text-dim);}
-  .match-result{font-weight:700;}
-  .match-result.win{color:var(--accent2);}
-  .match-result.loss{color:var(--accent);}
+  .match-item:nth-child(odd){border-left:3px solid var(--accent2);}
   .match-score{color:var(--accent);font-weight:700;}
   .match-kills{color:var(--accent2);}
-  .match-time{color:var(--text-dim);}
+  .match-car{color:var(--text-dim);}
 
-  /* Login prompt */
-  .login-prompt{
-    text-align:center;padding:60px 20px;background:var(--bg2);border:1px solid var(--border);
-  }
-  .login-prompt h3{font-size:20px;color:var(--accent);margin-bottom:12px;}
-  .login-prompt p{color:var(--text-dim);margin-bottom:24px;font-size:13px;}
-  .discord-login-btn{
-    display:inline-flex;align-items:center;gap:10px;
-    background:#5865F2;color:#fff;padding:14px 32px;
-    font-family:inherit;font-weight:700;font-size:14px;
-    text-decoration:none;text-transform:uppercase;letter-spacing:2px;cursor:pointer;
-    border:none;transition:all 0.3s;
-  }
-  .discord-login-btn:hover{background:#4752C4;box-shadow:0 5px 20px rgba(88,101,242,0.4);transform:translateY(-2px);}
+  .empty-state{text-align:center;padding:40px;color:var(--text-dim);}
+  .empty-state .btn{display:inline-block;margin-top:12px;background:var(--accent);color:#fff;padding:10px 24px;text-decoration:none;font-family:inherit;font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:2px;}
 
   footer{
     position:relative;z-index:1;padding:40px 20px;border-top:1px solid var(--border);text-align:center;
@@ -136,138 +105,7 @@
 </nav>
 
 <div class="container" id="profile-content">
-  <!-- Will be populated by JS: shows either login prompt or profile -->
-  <div id="logged-out">
-    <div class="login-prompt">
-      <h3>🚗 Sign In to View Profile</h3>
-      <p>Connect with Discord to track your stats, achievements, and compete on the leaderboard.</p>
-      <button class="discord-login-btn" onclick="loginWithDiscord()">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg>
-        LOGIN WITH DISCORD
-      </button>
-      <p style="margin-top:14px;font-size:10px;color:var(--text-dim);">Or try the demo profile below</p>
-    </div>
-
-    <!-- Demo profile (shown even when logged out for preview) -->
-    <div style="margin-top:30px;" id="demo-profile">
-      <div class="profile-header">
-        <div class="avatar">🏎️</div>
-        <div class="profile-info">
-          <h2>DemoDriver</h2>
-          <div class="title">Rookie Driver</div>
-          <div class="bio">Just getting started in the arena. Ready to cause some chaos!</div>
-        </div>
-      </div>
-
-      <div class="stats-grid">
-        <div class="stat-card">
-          <div class="stat-icon">🏆</div>
-          <div class="stat-value">12,450</div>
-          <div class="stat-label">Best Score</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon">💥</div>
-          <div class="stat-value">87</div>
-          <div class="stat-label">Total Kills</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon">🎮</div>
-          <div class="stat-value">34</div>
-          <div class="stat-label">Games Played</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon">👑</div>
-          <div class="stat-value">12</div>
-          <div class="stat-label">Victories</div>
-        </div>
-      </div>
-
-      <h3 class="section-title">🏅 <span>Achievements</span></h3>
-      <div class="achievements-grid">
-        <div class="achievement unlocked">
-          <span class="ach-icon">🎯</span>
-          <div class="ach-info">
-            <h4>First Blood</h4>
-            <p>Get your first kill</p>
-          </div>
-        </div>
-        <div class="achievement unlocked">
-          <span class="ach-icon">🔥</span>
-          <div class="ach-info">
-            <h4>Triple Kill</h4>
-            <p>Destroy 3 cars in one match</p>
-          </div>
-        </div>
-        <div class="achievement unlocked">
-          <span class="ach-icon">⚡</span>
-          <div class="ach-info">
-            <h4>Speed Demon</h4>
-            <p>Use 10 boosts</p>
-          </div>
-        </div>
-        <div class="achievement locked">
-          <span class="ach-icon">💀</span>
-          <div class="ach-info">
-            <h4>Unstoppable</h4>
-            <p>Win without taking damage</p>
-          </div>
-        </div>
-        <div class="achievement locked">
-          <span class="ach-icon">👑</span>
-          <div class="ach-info">
-            <h4>Arena King</h4>
-            <p>Win 50 matches</p>
-          </div>
-        </div>
-        <div class="achievement locked">
-          <span class="ach-icon">💎</span>
-          <div class="ach-info">
-            <h4>Collector</h4>
-            <p>Own 10 car skins</p>
-          </div>
-        </div>
-      </div>
-
-      <h3 class="section-title">📋 <span>Recent Matches</span></h3>
-      <div class="match-list">
-        <div class="match-item win">
-          <div class="match-date">2h ago</div>
-          <div class="match-result win">VICTORY</div>
-          <div class="match-score">8,420</div>
-          <div class="match-kills">5 kills</div>
-          <div class="match-time">1m 42s</div>
-        </div>
-        <div class="match-item loss">
-          <div class="match-date">4h ago</div>
-          <div class="match-result loss">WRECKED</div>
-          <div class="match-score">3,100</div>
-          <div class="match-kills">2 kills</div>
-          <div class="match-time">1m 15s</div>
-        </div>
-        <div class="match-item win">
-          <div class="match-date">Yesterday</div>
-          <div class="match-result win">VICTORY</div>
-          <div class="match-score">6,890</div>
-          <div class="match-kills">4 kills</div>
-          <div class="match-time">2m 05s</div>
-        </div>
-        <div class="match-item loss">
-          <div class="match-date">Yesterday</div>
-          <div class="match-result loss">WRECKED</div>
-          <div class="match-score">2,400</div>
-          <div class="match-kills">1 kill</div>
-          <div class="match-time">0m 58s</div>
-        </div>
-        <div class="match-item win">
-          <div class="match-date">2 days ago</div>
-          <div class="match-result win">VICTORY</div>
-          <div class="match-score">5,200</div>
-          <div class="match-kills">3 kills</div>
-          <div class="match-time">1m 50s</div>
-        </div>
-      </div>
-    </div>
-  </div>
+  <div class="spinner">Loading profile</div>
 </div>
 
 <footer>
@@ -275,32 +113,116 @@
 </footer>
 
 <script>
-  function loginWithDiscord() {
-    window.location.href = '/auth/discord/login';
+  const USER_ID = 1;
+
+  async function loadProfile() {
+    try {
+      const res = await fetch(`/api/users/${USER_ID}`);
+      const data = await res.json();
+
+      if (!data.user) {
+        document.getElementById('profile-content').innerHTML = `
+          <div class="empty-state">
+            <h3 style="font-size:20px;color:var(--accent);margin-bottom:12px;">No Profile Yet</h3>
+            <p style="color:var(--text-dim);margin-bottom:24px;">Play a game to create your profile and start tracking stats!</p>
+            <a href="/play" class="btn">PLAY NOW</a>
+          </div>
+        `;
+        return;
+      }
+
+      const u = data.user;
+      const scores = data.recent_scores || [];
+      const bestScore = scores.length > 0 ? Math.max(...scores.map(s => s.score)) : 0;
+      const totalKills = scores.reduce((sum, s) => sum + (s.kills || 0), 0);
+      const totalCoins = u.coins || 0;
+      const inventory = data.inventory || [];
+
+      // Determine title based on stats
+      let title = 'Rookie Driver';
+      if (u.wins >= 50) title = 'Arena King';
+      else if (u.wins >= 20) title = 'Veteran';
+      else if (u.wins >= 5) title = 'Skilled Driver';
+      else if (u.games_played >= 10) title = 'Rising Star';
+
+      document.getElementById('profile-content').innerHTML = `
+        <div class="profile-header">
+          <div class="avatar">🏎️</div>
+          <div class="profile-info">
+            <h2>${u.username || 'Driver'}</h2>
+            <div class="title">${title}</div>
+            <div class="bio">${u.games_played || 0} games played · ${totalCoins.toLocaleString()} coins · ${inventory.length} items owned</div>
+          </div>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-icon">🏆</div>
+            <div class="stat-value">${bestScore.toLocaleString()}</div>
+            <div class="stat-label">Best Score</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">💥</div>
+            <div class="stat-value">${totalKills}</div>
+            <div class="stat-label">Total Kills</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">🎮</div>
+            <div class="stat-value">${u.games_played || 0}</div>
+            <div class="stat-label">Games Played</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">👑</div>
+            <div class="stat-value">${u.wins || 0}</div>
+            <div class="stat-label">Victories</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">💰</div>
+            <div class="stat-value">${totalCoins.toLocaleString()}</div>
+            <div class="stat-label">Coins</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">🎁</div>
+            <div class="stat-value">${inventory.length}</div>
+            <div class="stat-label">Items Owned</div>
+          </div>
+        </div>
+
+        <h3 class="section-title">📋 <span>Recent Matches</span></h3>
+        ${scores.length === 0 ? '<div class="empty-state">No matches played yet. <a href="/play" class="btn">PLAY NOW</a></div>' : `
+          <div class="match-list">
+            ${scores.slice(0, 10).map(s => `
+              <div class="match-item">
+                <div class="match-car">${s.car_type || 'default'}</div>
+                <div class="match-score">${(s.score || 0).toLocaleString()} pts</div>
+                <div class="match-kills">${s.kills || 0} kills</div>
+                <div style="color:var(--text-dim);font-size:11px;">${s.played_at ? new Date(s.played_at).toLocaleDateString() : '--'}</div>
+              </div>
+            `).join('')}
+          </div>
+        `}
+
+        ${inventory.length > 0 ? `
+          <h3 class="section-title">🎁 <span>Inventory</span></h3>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:40px;">
+            ${inventory.map(item => `
+              <span style="background:var(--bg3);border:1px solid var(--border);padding:6px 12px;font-size:11px;text-transform:uppercase;letter-spacing:1px;">
+                ${item.name || 'Item'}
+              </span>
+            `).join('')}
+          </div>
+        ` : ''}
+      `;
+    } catch (e) {
+      document.getElementById('profile-content').innerHTML = `
+        <div class="empty-state">
+          <p style="color:var(--accent);">Failed to load profile. Is the server running?</p>
+        </div>
+      `;
+    }
   }
 
-  // Try to load actual profile from API
-  fetch('/api/users/me')
-    .then(r => r.json())
-    .then(data => {
-      if (data && data.username) {
-        // Update profile with real data
-        const profileHeader = document.querySelector('.profile-header');
-        if (profileHeader) {
-          profileHeader.querySelector('h2').textContent = data.username;
-          profileHeader.querySelector('.title').textContent = data.title || 'Rookie Driver';
-          if (data.discord_id) {
-            const badge = document.createElement('div');
-            badge.className = 'discord-badge';
-            badge.innerHTML = '🔗 DISCORD CONNECTED';
-            profileHeader.querySelector('.profile-info').appendChild(badge);
-          }
-        }
-      }
-    })
-    .catch(() => {
-      // Not logged in - keep demo data
-    });
+  loadProfile();
 </script>
 </body>
 </html>

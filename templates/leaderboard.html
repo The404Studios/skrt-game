@@ -11,24 +11,19 @@
   *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
   :root{--bg:#0a0a0a;--bg2:#0f0f14;--bg3:#16161f;--accent:#ff3d00;--accent2:#00ff88;--text:#e0e0e0;--text-dim:#888;--border:#1a1a2e;--glow:0 0 20px;}
 
-  body {
-    background:var(--bg);
-    color:var(--text);
-    font-family:'JetBrains Mono',monospace;
-    min-height:100vh;
-  }
+  body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospace;min-height:100vh;}
 
-  .bg-grid {
+  .bg-grid{
     position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:0;
     background-image:linear-gradient(rgba(255,61,0,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(255,61,0,0.03) 1px,transparent 1px);
     background-size:60px 60px;
   }
 
-  nav {
+  nav{
     position:relative;z-index:10;
     background:rgba(10,10,10,0.9);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);
   }
-  .nav-inner {
+  .nav-inner{
     max-width:1200px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;height:60px;padding:0 20px;
   }
   .nav-logo{font-size:24px;font-weight:800;color:var(--accent);text-decoration:none;text-shadow:var(--glow) var(--accent);}
@@ -43,16 +38,10 @@
 
   .container{max-width:800px;margin:0 auto;padding:40px 20px;position:relative;z-index:1;}
 
-  .page-title {
-    text-align:center;
-    font-size:clamp(28px,5vw,40px);
-    font-weight:800;
-    margin-bottom:8px;
-  }
+  .page-title{text-align:center;font-size:clamp(28px,5vw,40px);font-weight:800;margin-bottom:8px;}
   .page-title span{color:var(--accent2);}
   .page-subtitle{text-align:center;color:var(--text-dim);margin-bottom:40px;font-size:13px;letter-spacing:2px;}
 
-  /* Tab buttons */
   .tabs{display:flex;gap:4px;margin-bottom:30px;justify-content:center;}
   .tab-btn{
     background:var(--bg3);color:var(--text-dim);border:1px solid var(--border);
@@ -61,26 +50,17 @@
   }
   .tab-btn.active,.tab-btn:hover{color:var(--accent);border-color:var(--accent);}
 
-  /* Leaderboard table */
-  .leaderboard{width:100%;}
   .lb-header{
     display:grid;grid-template-columns:60px 1fr 100px 80px 100px;
     padding:12px 16px;background:var(--bg3);border:1px solid var(--border);
-    font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;
-    font-weight:700;
+    font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;font-weight:700;
   }
   .lb-row{
     display:grid;grid-template-columns:60px 1fr 100px 80px 100px;
-    padding:14px 16px;border-bottom:1px solid var(--border);transition:all 0.3s;
-    align-items:center;
+    padding:14px 16px;border-bottom:1px solid var(--border);transition:all 0.3s;align-items:center;
   }
   .lb-row:hover{background:var(--bg3);}
-  .lb-row.top-1{border-left:3px solid #ffd700;}
-  .lb-row.top-2{border-left:3px solid #c0c0c0;}
-  .lb-row.top-3{border-left:3px solid #cd7f32;}
-  .lb-rank{
-    font-weight:800;font-size:16px;
-  }
+  .lb-rank{font-weight:800;font-size:16px;}
   .lb-rank.gold{color:#ffd700;}
   .lb-rank.silver{color:#c0c0c0;}
   .lb-rank.bronze{color:#cd7f32;}
@@ -88,18 +68,15 @@
   .lb-player .you{color:var(--accent2);}
   .lb-score{color:var(--accent2);font-weight:700;font-size:14px;}
   .lb-kills{color:var(--accent);font-weight:700;}
-  .lb-time{color:var(--text-dim);font-size:12px;}
+  .lb-games{color:var(--text-dim);font-size:12px;}
 
   .your-rank{
-    margin-top:30px;padding:16px;background:var(--bg2);border:1px solid var(--accent);
-    text-align:center;
+    margin-top:30px;padding:16px;background:var(--bg2);border:1px solid var(--accent);text-align:center;
   }
   .your-rank h4{color:var(--accent2);font-size:13px;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;}
   .your-rank .stats{display:flex;gap:30px;justify-content:center;flex-wrap:wrap;}
   .your-rank .stat-num{font-size:22px;font-weight:800;color:var(--accent);}
   .your-rank .stat-label{font-size:11px;color:var(--text-dim);text-transform:uppercase;}
-
-  .loading-state{text-align:center;padding:40px;color:var(--text-dim);}
 
   footer{
     position:relative;z-index:1;padding:40px 20px;border-top:1px solid var(--border);text-align:center;
@@ -130,28 +107,26 @@
 
   <div class="tabs">
     <button class="tab-btn active" data-tab="all">All Time</button>
-    <button class="tab-btn" data-tab="weekly">This Week</button>
-    <button class="tab-btn" data-tab="daily">Today</button>
+    <button class="tab-btn" data-tab="best">Best Score</button>
+    <button class="tab-btn" data-tab="kills">Most Kills</button>
   </div>
 
-  <div id="leaderboard-content">
-    <div class="leaderboard">
-      <div class="lb-header">
-        <div>RANK</div><div>PLAYER</div><div>SCORE</div><div>KILLS</div><div>TIME</div>
-      </div>
-      <div id="lb-rows">
-        <div class="loading-state">Loading leaderboard...</div>
-      </div>
+  <div class="lb-header">
+    <div>RANK</div><div>PLAYER</div><div>SCORE</div><div>KILLS</div><div>GAMES</div>
+  </div>
+  <div id="lb-rows">
+    <div style="text-align:center;padding:40px;color:var(--text-dim);">
+      Loading leaderboard...
     </div>
   </div>
 
   <div class="your-rank" id="your-rank" style="display:none;">
     <h4>Your Stats</h4>
     <div class="stats">
-      <div><div class="stat-num" id="yr-rank">-</div><div class="stat-label">Rank</div></div>
-      <div><div class="stat-num" id="yr-score">0</div><div class="stat-label">Best Score</div></div>
+      <div><div class="stat-num" id="yr-best">0</div><div class="stat-label">Best Score</div></div>
       <div><div class="stat-num" id="yr-kills">0</div><div class="stat-label">Total Kills</div></div>
-      <div><div class="stat-num" id="yr-games">0</div><div class="stat-label">Games</div></div>
+      <div><div class="stat-num" id="yr-games">0</div><div class="stat-label">Games Played</div></div>
+      <div><div class="stat-num" id="yr-wins">0</div><div class="stat-label">Wins</div></div>
     </div>
   </div>
 </div>
@@ -161,19 +136,8 @@
 </footer>
 
 <script>
-  // Sample leaderboard data (would come from API)
-  const sampleData = [
-    { rank: 1, player: 'CrashKing99', score: 28450, kills: 156, time: '12:34' },
-    { rank: 2, player: 'NeonBlaze', score: 26100, kills: 142, time: '14:21' },
-    { rank: 3, player: 'WreckMachine', score: 23800, kills: 138, time: '15:08' },
-    { rank: 4, player: 'TurboRex', score: 21500, kills: 124, time: '13:45' },
-    { rank: 5, player: 'IronPhantom', score: 19800, kills: 118, time: '16:20' },
-    { rank: 6, player: 'VenomStrike', score: 18200, kills: 105, time: '14:55' },
-    { rank: 7, player: 'RazorEdge', score: 16900, kills: 98, time: '15:30' },
-    { rank: 8, player: 'BlazeRunner', score: 15400, kills: 87, time: '17:10' },
-    { rank: 9, player: 'CrusherX', score: 14100, kills: 82, time: '16:45' },
-    { rank: 10, player: 'ThunderBolt', score: 12800, kills: 76, time: '18:00' },
-  ];
+  let leaderboardData = [];
+  let userStats = null;
 
   function getRankClass(rank) {
     if (rank === 1) return 'gold';
@@ -184,67 +148,76 @@
 
   function renderLeaderboard(data) {
     const rows = document.getElementById('lb-rows');
+    if (!data || data.length === 0) {
+      rows.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-dim);">No scores yet. Play a game!</div>';
+      return;
+    }
     rows.innerHTML = data.map(d => `
-      <div class="lb-row top-${d.rank <= 3 ? d.rank : ''}">
+      <div class="lb-row">
         <div class="lb-rank ${getRankClass(d.rank)}">#${d.rank}</div>
-        <div class="lb-player">${d.player}</div>
-        <div class="lb-score">${d.score.toLocaleString()}</div>
-        <div class="lb-kills">${d.kills}</div>
-        <div class="lb-time">${d.time}</div>
+        <div class="lb-player">${d.username || 'Player'}</div>
+        <div class="lb-score">${(d.score || 0).toLocaleString()}</div>
+        <div class="lb-kills">${d.kills || 0}</div>
+        <div class="lb-games">${d.games || d.games_played || 0}</div>
       </div>
     `).join('');
   }
 
-  // Tab switching
+  async function loadData() {
+    try {
+      const [lbRes, userRes] = await Promise.all([
+        fetch('/api/leaderboard'),
+        fetch('/api/users/1')
+      ]);
+      const lbData = await lbRes.json();
+      const userData = await userRes.json();
+
+      if (lbData) {
+        leaderboardData = lbData.map((d, i) => ({
+          ...d,
+          rank: i + 1,
+        }));
+        renderLeaderboard(leaderboardData);
+      }
+
+      if (userData.user) {
+        const u = userData.user;
+        const scores = userData.recent_scores || [];
+        const bestScore = scores.length > 0 ? Math.max(...scores.map(s => s.score)) : 0;
+        const totalKills = scores.reduce((sum, s) => sum + (s.kills || 0), 0);
+
+        document.getElementById('your-rank').style.display = 'block';
+        document.getElementById('yr-best').textContent = bestScore.toLocaleString();
+        document.getElementById('yr-kills').textContent = totalKills;
+        document.getElementById('yr-games').textContent = u.games_played || 0;
+        document.getElementById('yr-wins').textContent = u.wins || 0;
+        userStats = { bestScore, totalKills, games: u.games_played, wins: u.wins };
+      }
+    } catch (e) {
+      document.getElementById('lb-rows').innerHTML =
+        '<div style="text-align:center;padding:40px;color:var(--accent);">Failed to load data. Is the server running?</div>';
+    }
+  }
+
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
-
-      // Simulate loading different data
       const tab = btn.dataset.tab;
-      let data = sampleData;
-      if (tab === 'weekly') {
-        data = sampleData.map(d => ({ ...d, score: Math.floor(d.score * 0.3 + Math.random() * 1000) }));
-      } else if (tab === 'daily') {
-        data = sampleData.map(d => ({ ...d, score: Math.floor(d.score * 0.1 + Math.random() * 500) }));
+      let sorted = [...leaderboardData];
+      if (tab === 'best') {
+        sorted.sort((a, b) => (b.best || b.score || 0) - (a.best || a.score || 0));
+      } else if (tab === 'kills') {
+        sorted.sort((a, b) => (b.kills || 0) - (a.kills || 0));
+      } else {
+        sorted.sort((a, b) => (b.total || b.score || 0) - (a.total || a.score || 0));
       }
-      renderLeaderboard(data);
+      sorted = sorted.map((d, i) => ({ ...d, rank: i + 1 }));
+      renderLeaderboard(sorted);
     });
   });
 
-  // Initial load
-  renderLeaderboard(sampleData);
-
-  // Try to load from API
-  fetch('/api/scores/top')
-    .then(r => r.json())
-    .then(data => {
-      if (data && data.length > 0) {
-        renderLeaderboard(data.map((d, i) => ({
-          rank: i + 1,
-          player: d.username || 'Player',
-          score: d.score,
-          kills: d.kills,
-          time: d.time ? `${Math.floor(d.time / 60)}:${String(d.time % 60).padStart(2, '0')}` : '--',
-        })));
-      }
-    })
-    .catch(() => {});
-
-  // Try to show user stats
-  fetch('/api/scores/mine')
-    .then(r => r.json())
-    .then(data => {
-      if (data && data.rank) {
-        document.getElementById('your-rank').style.display = 'block';
-        document.getElementById('yr-rank').textContent = '#' + data.rank;
-        document.getElementById('yr-score').textContent = (data.best_score || 0).toLocaleString();
-        document.getElementById('yr-kills').textContent = data.total_kills || 0;
-        document.getElementById('yr-games').textContent = data.games_played || 0;
-      }
-    })
-    .catch(() => {});
+  loadData();
 </script>
 </body>
 </html>

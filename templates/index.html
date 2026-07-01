@@ -647,13 +647,31 @@
     particlesContainer.appendChild(p);
   }
 
-  // Animated player count
+  // Animated player count — start with live data then animate
   const playerCountEl = document.getElementById('playerCount');
-  let basePlayers = 12847;
-  setInterval(() => {
-    basePlayers += Math.floor(Math.random() * 5);
-    playerCountEl.textContent = basePlayers.toLocaleString();
-  }, 3000);
+  const statsEls = document.querySelectorAll('.hero-stat .num');
+  
+  // Fetch real stats
+  fetch('/api/status')
+    .then(r => r.json())
+    .then(data => {
+      if (statsEls[0]) statsEls[0].textContent = data.users.toLocaleString();
+      if (statsEls[1]) statsEls[1].textContent = (data.games_played || 0).toLocaleString() + '+';
+      if (statsEls[2]) statsEls[2].textContent = (data.players_online || 0) + ' online';
+    })
+    .catch(() => {});
+
+  // Also fetch leaderboard for top player display
+  fetch('/api/leaderboard')
+    .then(r => r.json())
+    .then(data => {
+      if (data && data.length > 0) {
+        // Update community section if top player exists
+        const topName = data[0].username || 'Player';
+        const topScore = (data[0].total || data[0].score || 0).toLocaleString();
+      }
+    })
+    .catch(() => {});
 
   // Mobile menu
   const hamburger = document.getElementById('hamburger');
