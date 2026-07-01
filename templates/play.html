@@ -599,6 +599,28 @@
     setTimeout(() => loadingScreen.remove(), 500);
   }, 1200);
 
+  // Rotating loading tips
+  const tips = [
+    '💡 Tip: Use SPACE to boost through enemies',
+    '💡 Tip: Collect power-ups for game-changing abilities',
+    '💡 Tip: EMP blast disables nearby cars for 2 seconds',
+    '💡 Tip: Hold the hill zone in KOTH mode to win',
+    '💡 Tip: Chain kills within 5 seconds for score multipliers',
+    '💡 Tip: Press T to chat in multiplayer',
+    '💡 Tip: Press TAB after death to spectate',
+    '💡 Tip: Battle Royale zone shrinks — stay inside!',
+    '💡 Tip: Buy skins from the shop for visual upgrades',
+    '💡 Tip: Top daily score wins the 500 coin bounty',
+  ];
+  let tipIdx = 0;
+  const tipEl = document.querySelector('.loading-text');
+  setInterval(() => {
+    tipIdx = (tipIdx + 1) % tips.length;
+    if (tipEl && !loadingScreen.classList.contains('hidden')) {
+      tipEl.textContent = tips[tipIdx];
+    }
+  }, 2000);
+
   // Canvas click for audio context
   canvas.addEventListener('click', () => {
     if (game && game.audio) {
