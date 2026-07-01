@@ -167,9 +167,18 @@ export default class GameEngine {
     this.oilSlicks = [];
 
     // Game mode state
-    this.shrinkZone = null;   // { x, y, radius } for battle royale
+    this.shrinkZone = null;
     this.shrinkTarget = null;
-    this.killFeed = [];        // [{ text, timer }]
+    this.killFeed = [];
+    
+    // Chat system
+    this.chatMessages = [];
+    this.chatOpen = false;
+    this.chatInput = '';
+    
+    // Spectator mode
+    this.spectating = null;  // car id being spectated
+    this.skidMarks = [];
   }
 
   setConfig(cfg) {
@@ -184,6 +193,17 @@ export default class GameEngine {
       this.renderer.resize(this.canvas.clientWidth, this.canvas.clientHeight);
     });
 
+    // Chat keyboard listener
+    this._chatKeyHandler = (e) => {
+      if (this.chatOpen && this.state === 'playing') {
+        if (this.handleChatKey(e.key)) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      }
+    };
+    document.addEventListener('keydown', this._chatKeyHandler);
+
     // Start game loop
     this.lastTime = performance.now();
     this._loop(this.lastTime);
@@ -194,6 +214,7 @@ export default class GameEngine {
     this.input.destroy();
     this.audio.stopMusic();
     if (this.ws) this.ws.close();
+    if (this._chatKeyHandler) document.removeEventListener('keydown', this._chatKeyHandler);
   }
 
   // ── Multiplayer ────────────────────────────────────
@@ -253,7 +274,9 @@ export default class GameEngine {
         this._onGameOver(msg);
         break;
       case 'chat':
-        // Chat handled elsewhere
+        if (msg.from && msg.msg) {
+          this.addChatMessage(msg.from, msg.msg);
+        }
         break;
     }
   }
@@ -623,6 +646,11 @@ export default class GameEngine {
         }
       }
 
+      // Skid marks when turning at speed
+      if (car.health > 0 && Math.abs(car.speed) > 40 && Math.abs(car.angularVel) > 0.5) {
+        this.renderer.addSkidMark(car.x, car.y, car.angle);
+      }
+
       // Power-up timers
       this.physics.updateCarTimers(car, dt);
 
@@ -689,7 +717,7 @@ export default class GameEngine {
         }
         this.renderer.spawnParticles(car.x, car.y, 20, '#00ccff', 6, 0.8);
         this.renderer.addFlash('#0088ff', 0.2);
-        this.audio.crash(0.5);
+        this.audio.empBlast();
         if (car.isPlayer) this.score += 30;
       }
       // Shockwave
@@ -712,6 +740,7 @@ export default class GameEngine {
         this.renderer.spawnParticles(car.x, car.y, 30, '#ff8800', 8, 0.7);
         this.renderer.addScreenShake(20, 0.5);
         this.renderer.addFlash('#ff8800', 0.3);
+        this.audio.shockwaveSound();
         if (car.isPlayer) this.score += 40;
       }
     }
@@ -882,8 +911,25 @@ export default class GameEngine {
     // Draw kill feed
     this._drawKillFeed();
 
+    // Draw chat messages
+    this._drawChat();
+
+    // Draw spectator overlay if spectating
+    if (this.spectating) {
+      this._drawSpectatorOverlay();
+    }
+
     // Update input state
     this.input.update();
+
+    // Handle chat toggle
+    if (this.input.wasJustPressed('KeyT') && this.multiplayer) {
+      this.chatOpen = !this.chatOpen;
+    }
+    // Tab to cycle spectator
+    if (this.input.wasJustPressed('Tab') && this.spectating) {
+      this._cycleSpectator();
+    }
   }
 
   _updateGameOver(dt) {
@@ -1056,6 +1102,110 @@ export default class GameEngine {
     ctx.stroke();
   }
 
+  // ── Chat Drawing ─────────────────────────────────
+
+  _drawChat() {
+    const ctx = this.renderer.ctx;
+    const startY = this.renderer.height - 160;
+    for (let i = this.chatMessages.length - 1; i >= 0; i--) {
+      if (this.chatMessages.length - 1 - i > 4) break;
+      const msg = this.chatMessages[i];
+      ctx.fillStyle = msg.color || '#888';
+      ctx.font = '11px monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText(`${msg.from}: ${msg.text}`, 10, startY + (this.chatMessages.length - 1 - i) * 16);
+    }
+
+    // Chat input box
+    if (this.chatOpen) {
+      ctx.fillStyle = '#000000cc';
+      ctx.fillRect(10, this.renderer.height - 42, 300, 30);
+      ctx.strokeStyle = '#00ff88';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(10, this.renderer.height - 42, 300, 30);
+      ctx.fillStyle = '#fff';
+      ctx.font = '13px monospace';
+      ctx.fillText(`> ${this.chatInput}_`, 16, this.renderer.height - 22);
+    }
+  }
+
+  // ── Spectator ────────────────────────────────────
+
+  _enterSpectator() {
+    const alive = this.cars.filter(c => c.health > 0 && !c.isPlayer);
+    if (alive.length > 0) {
+      this.spectating = alive[0].id;
+    } else {
+      this._endGame();
+    }
+  }
+
+  _cycleSpectator() {
+    const alive = this.cars.filter(c => c.health > 0 && !c.isPlayer);
+    if (alive.length === 0) return;
+    const idx = alive.findIndex(c => c.id === this.spectating);
+    this.spectating = alive[(idx + 1) % alive.length].id;
+  }
+
+  _drawSpectatorOverlay() {
+    const ctx = this.renderer.ctx;
+    const car = this.cars.find(c => c.id === this.spectating);
+    if (!car || car.health <= 0) {
+      this._cycleSpectator();
+      return;
+    }
+
+    // Follow the spectated car
+    this.renderer.updateCamera(car.x, car.y);
+
+    // Overlay text
+    ctx.fillStyle = '#00000099';
+    ctx.fillRect(0, this.renderer.height - 30, this.renderer.width, 30);
+    ctx.fillStyle = '#fff';
+    ctx.font = '12px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(
+      `SPECTATING: ${car.name} | [TAB] next car | [ENTER] quit`,
+      this.renderer.width / 2,
+      this.renderer.height - 12
+    );
+  }
+
+  // ── Chat Input Handling ──────────────────────────
+
+  handleChatKey(key) {
+    if (!this.chatOpen) return false;
+    if (key === 'Enter') {
+      if (this.chatInput.trim()) {
+        this.chatMessages.push({ from: this.config.playerName, text: this.chatInput.trim(), color: '#00ff88' });
+        this._sendWS({ type: 'chat', msg: this.chatInput.trim() });
+      }
+      this.chatInput = '';
+      this.chatOpen = false;
+      return true;
+    }
+    if (key === 'Escape') {
+      this.chatInput = '';
+      this.chatOpen = false;
+      return true;
+    }
+    if (key === 'Backspace') {
+      this.chatInput = this.chatInput.slice(0, -1);
+      return true;
+    }
+    if (key.length === 1) {
+      this.chatInput += key;
+      return true;
+    }
+    return false;
+  }
+
+  addChatMessage(from, text, color = '#888') {
+    this.chatMessages.push({ from, text, color });
+    // Keep only last 20
+    if (this.chatMessages.length > 20) this.chatMessages.shift();
+  }
+
   // ── Kill Feed Drawing ─────────────────────────────
 
   _drawKillFeed() {
@@ -1119,6 +1269,8 @@ export default class GameEngine {
       this.kills++;
       this.audio.stopEngine(car.id);
       this.killFeed.push({ text: `YOU WERE WRECKED!`, timer: 3, color: '#ff3d00' });
+      // Enter spectator mode
+      this._enterSpectator();
     } else {
       this.kills++;
       this.score += 100;

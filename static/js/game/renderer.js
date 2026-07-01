@@ -19,6 +19,10 @@ class Renderer {
     // Screen flash
     this.flashAlpha = 0;
     this.flashColor = '#ffffff';
+
+    // Skid marks
+    this.skidMarks = [];
+    this.skidMarkTimer = 0;
   }
 
   resize(width, height) {
@@ -103,6 +107,17 @@ class Renderer {
       s.life -= dt;
     }
     this.sparks = this.sparks.filter(s => s.life > 0);
+
+    // Update skid marks
+    for (const skid of this.skidMarks) {
+      skid.life -= dt;
+    }
+    this.skidMarks = this.skidMarks.filter(s => s.life > 0);
+  }
+
+  addSkidMark(x, y, angle) {
+    this.skidMarks.push({ x, y, angle, life: 3 });
+    if (this.skidMarks.length > 200) this.skidMarks.shift();
   }
 
   updateCamera(targetX, targetY) {
@@ -146,6 +161,7 @@ class Renderer {
     // --- Particles & Sparks ---
     this._drawParticles();
     this._drawSparks();
+    this._drawSkidMarks();
 
     ctx.restore();
 
@@ -464,6 +480,19 @@ class Renderer {
       ctx.stroke();
     }
     ctx.globalAlpha = 1;
+  }
+
+  _drawSkidMarks() {
+    const ctx = this.ctx;
+    for (const skid of this.skidMarks) {
+      const alpha = Math.min(0.4, skid.life / 3) * 0.5;
+      ctx.strokeStyle = `rgba(30, 30, 30, ${alpha})`;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(skid.x - Math.cos(skid.angle) * 4, skid.y - Math.sin(skid.angle) * 4);
+      ctx.lineTo(skid.x + Math.cos(skid.angle) * 4, skid.y + Math.sin(skid.angle) * 4);
+      ctx.stroke();
+    }
   }
 
   _drawHUD(gs) {

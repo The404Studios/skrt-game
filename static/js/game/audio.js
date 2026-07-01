@@ -102,6 +102,58 @@ class AudioEngine {
     this._playTone(40, 0.5, 'sine', 0.5);
   }
 
+  empBlast() {
+    if (!this.initialized) return;
+    // Electric crackle
+    const now = this.ctx.currentTime;
+    for (let i = 0; i < 5; i++) {
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(200 + Math.random() * 2000, now + i * 0.04);
+      gain.gain.setValueAtTime(0.15, now + i * 0.04);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.04 + 0.08);
+      osc.connect(gain);
+      gain.connect(this.masterGain);
+      osc.start(now + i * 0.04);
+      osc.stop(now + i * 0.04 + 0.08);
+    }
+    this._playTone(60, 0.3, 'sine', 0.3);
+  }
+
+  shockwaveSound() {
+    if (!this.initialized) return;
+    // Deep boom
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(80, this.ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(20, this.ctx.currentTime + 0.6);
+    gain.gain.setValueAtTime(0.4, this.ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.6);
+    osc.connect(gain);
+    gain.connect(this.masterGain);
+    osc.start(this.ctx.currentTime);
+    osc.stop(this.ctx.currentTime + 0.6);
+
+    // Rumble noise
+    const bufferSize = this.ctx.sampleRate * 0.4;
+    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (this.ctx.sampleRate * 0.06));
+    }
+    const noise = this.ctx.createBufferSource();
+    noise.buffer = buffer;
+    const ng = this.ctx.createGain();
+    ng.gain.setValueAtTime(0.3, this.ctx.currentTime);
+    ng.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.4);
+    noise.connect(ng);
+    ng.connect(this.masterGain);
+    noise.start();
+    noise.stop(this.ctx.currentTime + 0.4);
+  }
+
   powerUp() {
     if (!this.initialized) return;
     const now = this.ctx.currentTime;
