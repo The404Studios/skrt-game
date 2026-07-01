@@ -8,6 +8,13 @@ from flask import Flask, request, jsonify, render_template, session, redirect
 from flask_sock import Sock
 import simple_websocket
 
+# Stripe (optional - only if key is set)
+stripe = None
+if os.environ.get('STRIPE_SECRET_KEY'):
+    import stripe as _stripe
+    stripe = _stripe
+    _stripe.api_key = os.environ['STRIPE_SECRET_KEY']
+
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', secrets.token_hex(32))
 app.config['TEMPLATES_AUTO_RELOAD'] = True
@@ -558,6 +565,84 @@ def api_rooms():
             'rooms': rooms,
             'total_players': len(connected_players)
         })
+
+# ── Stripe Payment ───────────────────────────────────
+
+@app.route('/api/create-checkout', methods=['POST'])
+def create_checkout():
+    """Create a Stripe checkout session for premium coins"""
+    if not stripe:
+        return jsonify({'error': 'Stripe not configured'}), 500
+
+    data = request.get_json()
+    user_id = data.get('user_id', 1)
+    package = data.get('package', 'coins_500')
+
+    # Price lookup
+    prices = {
+        'coins_500': {'amount': 499, 'name': '500 Coins', 'coins': 500},
+        'coins_2000': {'amount': 1499, 'name': '2000 Coins + 200 Bonus', 'coins': 2200},
+        'coins_5000': {'amount': 2999, 'name': '5000 Coins + 1000 Bonus', 'coins': 6000},
+        'vip_pass': {'amount': 999, 'name': 'VIP Pass (30 days)', 'coins': 0},
+    }
+
+    pkg = prices.get(package, prices['coins_500'])
+
+    try:
+        checkout_session = stripe.checkout.Session.create(
+            payment_method_types=['card'],
+            line_items=[{
+                'price_data': {
+                    'currency': 'usd',
+                    'product_data': {'name': pkg['name']},
+                    'unit_amount': pkg['amount'],
+                },
+                'quantity': 1,
+            }],
+            mode='payment',
+            success_url=request.host_url + 'shop?session_id={CHECKOUT_SESSION_ID}',
+            cancel_url=request.host_url + 'shop',
+            metadata={
+                'user_id': str(user_id),
+                'package': package,
+                'coins': str(pkg['coins']),
+            },
+        )
+        return jsonify({'url': checkout_session.url})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/stripe-webhook', methods=['POST'])
+def stripe_webhook():
+    """Handle Stripe webhook for completed payments"""
+    if not stripe:
+        return jsonify({'error': 'Stripe not configured'}), 500
+
+    payload = request.get_data(as_text=True)
+    sig_header = request.headers.get('Stripe-Signature')
+    endpoint_secret = os.environ.get('STRIPE_WEBHOOK_SECRET', '')
+
+    try:
+        event = stripe.Webhook.construct_event(
+            payload, sig_header, endpoint_secret
+        )
+    except Exception:
+        return jsonify({'error': 'Invalid signature'}), 400
+
+    if event['type'] == 'checkout.session.completed':
+        session_data = event['data']['object']
+        user_id = int(session_data['metadata'].get('user_id', 1))
+        coins = int(session_data['metadata'].get('coins', 0))
+        package = session_data['metadata'].get('package', '')
+
+        if coins > 0:
+            conn = get_db()
+            conn.execute('UPDATE users SET coins = coins + ? WHERE id = ?', [coins, user_id])
+            conn.commit()
+            conn.close()
+            print(f'[STRIPE] Added {coins} coins to user {user_id} for {package}')
+
+    return jsonify({'status': 'ok'})
 
 if __name__ == '__main__':
     init_db()

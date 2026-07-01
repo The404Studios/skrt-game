@@ -633,6 +633,7 @@ export default class GameEngine {
           this.renderer.spawnSparks(wallHit.point.x, wallHit.point.y, 5, '#ff6600');
           this.audio.crash(wallHit.impactForce * 0.02);
         }
+        this.renderer.addDamageNumber(car.x, car.y - car.height/2, wallHit.impactForce * 0.15, '#ff6600');
       }
 
       // Car collisions
@@ -644,6 +645,7 @@ export default class GameEngine {
           this.renderer.spawnParticles(carHit.point.x, carHit.point.y, 6, '#ff6600', 2, 0.4);
           this.audio.crash(carHit.impactForce * 0.03);
         }
+        this.renderer.addDamageNumber(carHit.point.x, carHit.point.y - 10, carHit.impactForce * 0.25, '#ff3d00');
       }
 
       // Skid marks when turning at speed

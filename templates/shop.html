@@ -144,6 +144,21 @@
       Loading shop...
     </div>
   </div>
+
+  <div style="text-align:center;margin:30px 0;">
+    <h3 style="color:var(--accent2);font-size:14px;letter-spacing:2px;margin-bottom:16px;">GET MORE COINS</h3>
+    <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
+      <button class="buy-btn" style="width:auto;padding:12px 20px;background:linear-gradient(135deg,#ffd700,#ff8c00);" onclick="buyCoins('coins_500')">
+        💰 500 Coins — $4.99
+      </button>
+      <button class="buy-btn" style="width:auto;padding:12px 20px;background:linear-gradient(135deg,#aa44ff,#6600cc);" onclick="buyCoins('coins_2000')">
+        💎 2200 Coins — $14.99
+      </button>
+      <button class="buy-btn" style="width:auto;padding:12px 20px;background:linear-gradient(135deg,#ff3d00,#cc0000);" onclick="buyCoins('coins_5000')">
+        👑 6000 Coins — $29.99
+      </button>
+    </div>
+  </div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -239,6 +254,25 @@
       }
     } catch (e) {
       showToast('Purchase failed', 'error');
+    }
+  };
+
+  window.buyCoins = async function(packageName) {
+    try {
+      const res = await fetch('/api/create-checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: USER_ID, package: packageName })
+      });
+      const data = await res.json();
+
+      if (data.url) {
+        window.location.href = data.url;
+      } else if (data.error) {
+        showToast(data.error, 'error');
+      }
+    } catch (e) {
+      showToast('Payment system not available. Configure STRIPE_SECRET_KEY to enable.', 'error');
     }
   };
 

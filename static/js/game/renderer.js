@@ -23,6 +23,9 @@ class Renderer {
     // Skid marks
     this.skidMarks = [];
     this.skidMarkTimer = 0;
+
+    // Floating damage numbers
+    this.damageNumbers = [];
   }
 
   resize(width, height) {
@@ -113,11 +116,22 @@ class Renderer {
       skid.life -= dt;
     }
     this.skidMarks = this.skidMarks.filter(s => s.life > 0);
+
+    // Update damage numbers
+    for (const dn of this.damageNumbers) {
+      dn.y -= 40 * dt;
+      dn.life -= dt;
+    }
+    this.damageNumbers = this.damageNumbers.filter(d => d.life > 0);
   }
 
   addSkidMark(x, y, angle) {
     this.skidMarks.push({ x, y, angle, life: 3 });
     if (this.skidMarks.length > 200) this.skidMarks.shift();
+  }
+
+  addDamageNumber(x, y, amount, color = '#ff3d00') {
+    this.damageNumbers.push({ x, y, text: Math.round(amount).toString(), color, life: 1.2 });
   }
 
   updateCamera(targetX, targetY) {
@@ -162,6 +176,7 @@ class Renderer {
     this._drawParticles();
     this._drawSparks();
     this._drawSkidMarks();
+    this._drawDamageNumbers();
 
     ctx.restore();
 
@@ -493,6 +508,19 @@ class Renderer {
       ctx.lineTo(skid.x + Math.cos(skid.angle) * 4, skid.y + Math.sin(skid.angle) * 4);
       ctx.stroke();
     }
+  }
+
+  _drawDamageNumbers() {
+    const ctx = this.ctx;
+    for (const dn of this.damageNumbers) {
+      const alpha = Math.min(1, dn.life / 0.3);
+      ctx.fillStyle = dn.color;
+      ctx.globalAlpha = alpha;
+      ctx.font = 'bold 14px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(`-${dn.text}`, dn.x, dn.y);
+    }
+    ctx.globalAlpha = 1;
   }
 
   _drawHUD(gs) {
