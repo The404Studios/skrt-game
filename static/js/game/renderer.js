@@ -26,6 +26,9 @@ class Renderer {
 
     // Floating damage numbers
     this.damageNumbers = [];
+
+    // Car trails for skins
+    this.carTrails = [];
   }
 
   resize(width, height) {
@@ -123,6 +126,12 @@ class Renderer {
       dn.life -= dt;
     }
     this.damageNumbers = this.damageNumbers.filter(d => d.life > 0);
+
+    // Update car trails
+    for (const trail of this.carTrails) {
+      trail.life -= dt;
+    }
+    this.carTrails = this.carTrails.filter(t => t.life > 0);
   }
 
   addSkidMark(x, y, angle) {
@@ -132,6 +141,11 @@ class Renderer {
 
   addDamageNumber(x, y, amount, color = '#ff3d00') {
     this.damageNumbers.push({ x, y, text: Math.round(amount).toString(), color, life: 1.2 });
+  }
+
+  addCarTrail(x, y, color, size = 2) {
+    this.carTrails.push({ x, y, color, size, life: 0.8 });
+    if (this.carTrails.length > 100) this.carTrails.shift();
   }
 
   updateCamera(targetX, targetY) {
@@ -182,6 +196,7 @@ class Renderer {
     this._drawSparks();
     this._drawSkidMarks();
     this._drawDamageNumbers();
+    this._drawCarTrails();
 
     ctx.restore();
 
@@ -561,6 +576,19 @@ class Renderer {
       ctx.font = 'bold 14px monospace';
       ctx.textAlign = 'center';
       ctx.fillText(`-${dn.text}`, dn.x, dn.y);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  _drawCarTrails() {
+    const ctx = this.ctx;
+    for (const trail of this.carTrails) {
+      const alpha = (trail.life / 0.8) * 0.6;
+      ctx.fillStyle = trail.color;
+      ctx.globalAlpha = alpha;
+      ctx.beginPath();
+      ctx.arc(trail.x, trail.y, trail.size, 0, Math.PI * 2);
+      ctx.fill();
     }
     ctx.globalAlpha = 1;
   }

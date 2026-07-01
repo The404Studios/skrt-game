@@ -13,6 +13,14 @@ const CAR_TYPES = {
   lightning:{ speed: 200, armor: 75,  turnSpeed: 3.8,  width: 32, height: 18, color: '#ffff00', name: 'Lightning' },
 };
 
+// Skin overrides (shop skin name -> color + trail)
+const SKIN_DATA = {
+  'Speed Demon':  { color: '#ff3d00', trailColor: '#ff6600', glow: true },
+  'Neon Phantom': { color: '#00ff88', trailColor: '#00ffcc', glow: true },
+  'Ice King':     { color: '#00d4ff', trailColor: '#aaddff', glow: true },
+  'Gold Rush':    { color: '#ffd700', trailColor: '#ffec8b', glow: true },
+};
+
 const POWERUP_TYPES = ['repair', 'speed', 'shield', 'ram', 'mine', 'missile', 'oil', 'emp', 'shockwave'];
 const AI_NAMES = ['CrashBot', 'Smasher', 'WreckKing', 'MetalMan', 'TurboG', 'Rusty', 'IronClad',
                    'Venom', 'Blaze', 'Phantom', 'Crusher', 'Razor', 'Thunder', 'Inferno', 'Glitch'];
@@ -464,6 +472,8 @@ export default class GameEngine {
         width: cfg.width,
         height: cfg.height,
         color: cfg.color,
+        // Apply skin override for player
+        trailColor: null,
         health: cfg.armor,
         maxHealth: cfg.armor,
         isPlayer: p.isPlayer || false,
@@ -482,6 +492,15 @@ export default class GameEngine {
       };
 
       this.cars.push(car);
+
+      // Apply equipped skin to player's car
+      if (p.isPlayer && this.config.skinName) {
+        const skin = SKIN_DATA[this.config.skinName];
+        if (skin) {
+          car.color = skin.color;
+          car.trailColor = skin.trailColor;
+        }
+      }
 
       // Create AI driver for non-player cars
       if (!p.isPlayer) {
@@ -710,6 +729,19 @@ export default class GameEngine {
       // Skid marks when turning at speed
       if (car.health > 0 && Math.abs(car.speed) > 40 && Math.abs(car.angularVel) > 0.5) {
         this.renderer.addSkidMark(car.x, car.y, car.angle);
+      }
+
+      // Skin trail behind car
+      if (car.health > 0 && car.trailColor && Math.abs(car.speed) > 20) {
+        const bx = car.x - Math.cos(car.angle) * car.width * 0.7;
+        const by = car.y - Math.sin(car.angle) * car.width * 0.7;
+        this.renderer.addCarTrail(bx, by, car.trailColor, 2 + Math.abs(car.speed) * 0.01);
+        if (Math.random() < 0.3) {
+          this.renderer.addCarTrail(
+            bx + (Math.random()-0.5)*8, by + (Math.random()-0.5)*8,
+            car.trailColor, 3
+          );
+        }
       }
 
       // Power-up timers
