@@ -285,6 +285,14 @@ class PhysicsEngine {
         // Drop an oil slick behind
         car.dropOil = true;
         break;
+      case 'emp':
+        // EMP blast that disables nearby cars
+        car.doEMP = true;
+        break;
+      case 'shockwave':
+        // Push all nearby cars away
+        car.doShockwave = true;
+        break;
     }
   }
 

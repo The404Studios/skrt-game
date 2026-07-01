@@ -13,7 +13,7 @@ const CAR_TYPES = {
   lightning:{ speed: 200, armor: 75,  turnSpeed: 3.8,  width: 32, height: 18, color: '#ffff00', name: 'Lightning' },
 };
 
-const POWERUP_TYPES = ['repair', 'speed', 'shield', 'ram', 'mine', 'missile', 'oil'];
+const POWERUP_TYPES = ['repair', 'speed', 'shield', 'ram', 'mine', 'missile', 'oil', 'emp', 'shockwave'];
 const AI_NAMES = ['CrashBot', 'Smasher', 'WreckKing', 'MetalMan', 'TurboG', 'Rusty', 'IronClad',
                    'Venom', 'Blaze', 'Phantom', 'Crusher', 'Razor', 'Thunder', 'Inferno', 'Glitch'];
 
@@ -422,6 +422,7 @@ export default class GameEngine {
         shieldTimer: 0,
         ramBonus: false,
         ramTimer: 0,
+        empDisabled: 0,
         lastWallHit: 0,
         input: { throttle: 0, brake: 0, steer: 0, boost: false },
       };
@@ -573,14 +574,24 @@ export default class GameEngine {
     // Process player inputs
     const players = this.cars.filter(c => c.isPlayer);
     for (const car of players) {
-      car.input = this.input.getPlayerInput(car.playerIndex);
+      car.empDisabled = Math.max(0, car.empDisabled - dt);
+      if (car.empDisabled > 0) {
+        car.input = { throttle: 0, brake: 0, steer: 0, boost: false };
+      } else {
+        car.input = this.input.getPlayerInput(car.playerIndex);
+      }
     }
 
     // Process AI
     for (const ai of this.aiDrivers) {
       const car = this.cars.find(c => c.id === ai.carId);
       if (car && car.health > 0) {
-        car.input = ai.driver.update(car, this.cars, this.arena.walls, this.powerUps, this.arena, dt);
+        car.empDisabled = Math.max(0, car.empDisabled - dt);
+        if (car.empDisabled > 0) {
+          car.input = { throttle: 0, brake: 0.5, steer: 0, boost: false };
+        } else {
+          car.input = ai.driver.update(car, this.cars, this.arena.walls, this.powerUps, this.arena, dt);
+        }
       }
     }
 
@@ -661,6 +672,47 @@ export default class GameEngine {
         const oy = car.y - Math.sin(car.angle) * car.width;
         this.oilSlicks.push({ x: ox, y: oy, life: 10, radius: 30 + Math.random() * 20 });
         if (car.isPlayer) this.score += 5;
+      }
+      // EMP blast
+      if (car.doEMP) {
+        car.doEMP = false;
+        const empRadius = 180;
+        for (const other of this.cars) {
+          if (other.id === car.id || other.health <= 0) continue;
+          const dx = other.x - car.x, dy = other.y - car.y;
+          const dist = Math.sqrt(dx*dx + dy*dy);
+          if (dist < empRadius) {
+            other.speed *= 0.2;
+            other.empDisabled = 2.0; // seconds of no control
+            this.renderer.spawnParticles(other.x, other.y, 8, '#00ccff', 2, 0.5);
+          }
+        }
+        this.renderer.spawnParticles(car.x, car.y, 20, '#00ccff', 6, 0.8);
+        this.renderer.addFlash('#0088ff', 0.2);
+        this.audio.crash(0.5);
+        if (car.isPlayer) this.score += 30;
+      }
+      // Shockwave
+      if (car.doShockwave) {
+        car.doShockwave = false;
+        const waveRadius = 200;
+        for (const other of this.cars) {
+          if (other.id === car.id || other.health <= 0) continue;
+          const dx = other.x - car.x, dy = other.y - car.y;
+          const dist = Math.sqrt(dx*dx + dy*dy);
+          if (dist < waveRadius && dist > 1) {
+            const force = (1 - dist / waveRadius) * 300;
+            other.x += (dx / dist) * force * dt;
+            other.y += (dy / dist) * force * dt;
+            other.speed *= -0.5;
+            other.health -= 10;
+            this.renderer.spawnSparks(other.x, other.y, 4, '#ff8800');
+          }
+        }
+        this.renderer.spawnParticles(car.x, car.y, 30, '#ff8800', 8, 0.7);
+        this.renderer.addScreenShake(20, 0.5);
+        this.renderer.addFlash('#ff8800', 0.3);
+        if (car.isPlayer) this.score += 40;
       }
     }
 

@@ -306,6 +306,18 @@ class Renderer {
       ctx.shadowBlur = 0;
     }
 
+    // EMP disabled visual
+    if (car.empDisabled > 0) {
+      ctx.strokeStyle = '#00ccff';
+      ctx.lineWidth = 2;
+      ctx.shadowColor = '#00ccff';
+      ctx.shadowBlur = 15;
+      ctx.setLineDash([4, 4]);
+      ctx.strokeRect(-w / 2 - 4, -h / 2 - 4, w + 8, h + 8);
+      ctx.setLineDash([]);
+      ctx.shadowBlur = 0;
+    }
+
     ctx.restore();
 
     // Health bar (above car, screen-aligned)
@@ -386,6 +398,8 @@ class Renderer {
         case 'speed': glowColor = '#00aaff'; break;
         case 'shield': glowColor = '#ffcc00'; break;
         case 'ram': glowColor = '#ff3d00'; break;
+        case 'emp': glowColor = '#00ccff'; break;
+        case 'shockwave': glowColor = '#ff8800'; break;
         default: glowColor = '#ffffff';
       }
 
@@ -416,6 +430,8 @@ class Renderer {
         case 'speed': icon = '»'; break;
         case 'shield': icon = '◈'; break;
         case 'ram': icon = '◆'; break;
+        case 'emp': icon = '⚡'; break;
+        case 'shockwave': icon = '◎'; break;
       }
       ctx.fillText(icon, 0, 0);
 
