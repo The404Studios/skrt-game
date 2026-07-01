@@ -342,6 +342,13 @@
     </select>
   </div>
 
+  <div class="menu-row" id="skin-row" style="display:none;">
+    <label>Skin</label>
+    <select id="setting-skin">
+      <option value="">Default</option>
+    </select>
+  </div>
+
   <div class="menu-row">
     <label>Game Mode</label>
     <select id="setting-mode">
@@ -430,6 +437,32 @@
   let game = null;
   let menuVisible = true;
 
+  // ── Load skins from API ─────────────────────────
+  async function loadSkins() {
+    try {
+      const res = await fetch('/api/users/1');
+      const data = await res.json();
+      const inventory = data.inventory || [];
+      const skins = inventory.filter(item => item.category === 'skin');
+      
+      if (skins.length > 0) {
+        const row = document.getElementById('skin-row');
+        const select = document.getElementById('setting-skin');
+        row.style.display = 'flex';
+        skins.forEach(skin => {
+          const opt = document.createElement('option');
+          opt.value = skin.name;
+          opt.textContent = skin.name;
+          select.appendChild(opt);
+        });
+        // Restore saved skin
+        if (settings.skinName) {
+          select.value = settings.skinName;
+        }
+      }
+    } catch(e) {}
+  }
+
   // ── Settings ──────────────────────────────────────
   const settings = {
     carType: 'brawler',
@@ -442,6 +475,7 @@
     playerCount: 1,
     playerName: 'Racer',
     roomCode: 'arena1',
+    skinName: '',
   };
 
   // Load saved settings
@@ -471,6 +505,8 @@
     settings.volume = parseInt(document.getElementById('setting-volume').value) / 100;
     settings.playerName = document.getElementById('setting-name').value || 'Racer';
     settings.roomCode = document.getElementById('setting-room').value || 'arena1';
+    const skinSelect = document.getElementById('setting-skin');
+    if (skinSelect) settings.skinName = skinSelect.value;
     localStorage.setItem('skrt_settings', JSON.stringify(settings));
   }
 
@@ -556,6 +592,7 @@
 
   // Initialize game and hide loading
   initGame();
+  loadSkins();
 
   setTimeout(() => {
     loadingScreen.classList.add('hidden');
