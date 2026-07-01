@@ -273,6 +273,70 @@ def api_challenges():
         'challenges': CHALLENGES,
     })
 
+# ── Discord Command API ────────────────────────────
+
+@app.route('/api/discord/stats')
+def discord_stats():
+    """Formatted stats for Discord bot"""
+    conn = get_db()
+    users = conn.execute('SELECT COUNT(*) FROM users').fetchone()[0]
+    total_games = conn.execute('SELECT COUNT(*) FROM scores').fetchone()[0]
+    
+    # Today's stats
+    today = datetime.now().strftime('%Y-%m-%d')
+    today_games = conn.execute("SELECT COUNT(*) FROM scores WHERE date(played_at) = ?", [today]).fetchone()[0]
+    today_top = conn.execute('''
+        SELECT s.score, u.username FROM scores s 
+        JOIN users u ON s.user_id = u.id 
+        WHERE date(s.played_at) = ? 
+        ORDER BY s.score DESC LIMIT 1
+    ''', [today]).fetchone()
+    
+    # Top players
+    top3 = conn.execute('''
+        SELECT u.username, MAX(s.score) as best, COUNT(s.id) as games
+        FROM users u JOIN scores s ON u.id = s.user_id
+        GROUP BY u.id ORDER BY best DESC LIMIT 3
+    ''').fetchall()
+    
+    # Active rooms
+    rooms_active = len([r for r in game_rooms.values() if r['started']])
+    players_now = len(connected_players)
+    
+    conn.close()
+    
+    msg = "🏎️ **SKRT DERBY STATS**\n"
+    msg += f"👥 Players: {users} | 🎮 Games: {total_games} | ⚡ Online: {players_now}\n"
+    msg += f"📅 Today: {today_games} games"
+    if today_top:
+        msg += f" | Top: **{today_top['username']}** ({today_top['score']:,})"
+    msg += "\n\n**🏆 Top 3 All-Time:**\n"
+    for i, p in enumerate(top3):
+        medal = ['🥇', '🥈', '🥉'][i]
+        msg += f"{medal} **{p['username']}**: {p['best']:,} pts ({p['games']} games)\n"
+    
+    if rooms_active > 0:
+        msg += f"\n🔥 {rooms_active} active room(s) — join now!"
+    
+    return jsonify({'text': msg})
+
+@app.route('/api/discord/leaderboard')
+def discord_leaderboard():
+    """Quick top 10 for Discord"""
+    conn = get_db()
+    rows = conn.execute('''
+        SELECT u.username, MAX(s.score) as best, COUNT(s.id) as games, SUM(s.kills) as kills
+        FROM users u JOIN scores s ON u.id = s.user_id
+        GROUP BY u.id ORDER BY best DESC LIMIT 10
+    ''').fetchall()
+    conn.close()
+    
+    msg = "🏆 **TOP 10 LEADERBOARD**\n"
+    for i, r in enumerate(rows):
+        msg += f"{i+1}. **{r['username']}**: {r['best']:,} pts | {r['kills']} kills | {r['games']} games\n"
+    
+    return jsonify({'text': msg})
+
 # ── WebSocket Game Server ──────────────────────────────
 connected_players = {}
 game_rooms = {}
