@@ -212,13 +212,52 @@
             `).join('')}
           </div>
         ` : ''}
+
+        <h3 class="section-title" id="ach-title">🏅 <span>Achievements</span></h3>
+        <div id="ach-container" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-bottom:40px;">
+          <div class="spinner" style="grid-column:1/-1;">Loading achievements</div>
+        </div>
       `;
+
+      // Load achievements async
+      loadAchievements();
     } catch (e) {
       document.getElementById('profile-content').innerHTML = `
         <div class="empty-state">
           <p style="color:var(--accent);">Failed to load profile. Is the server running?</p>
         </div>
       `;
+    }
+  }
+
+  async function loadAchievements() {
+    try {
+      const res = await fetch(`/api/achievements/${USER_ID}`);
+      const data = await res.json();
+      const container = document.getElementById('ach-container');
+      const title = document.getElementById('ach-title');
+      if (!container) return;
+
+      if (!data.achievements || data.achievements.length === 0) {
+        container.innerHTML = '<div class="empty-state">Play games to earn achievements!</div>';
+        return;
+      }
+
+      const stats = data.stats || {};
+      title.innerHTML = `🏅 <span>Achievements</span> (${stats.unlocked_count || 0}/${stats.total_count || 12})`;
+
+      container.innerHTML = data.achievements.map(a => `
+        <div style="background:var(--bg3);border:1px solid ${a.unlocked ? 'var(--accent2)' : 'var(--border)'};padding:12px;display:flex;gap:10px;align-items:center;${a.unlocked ? '' : 'opacity:0.4;'}">
+          <span style="font-size:24px;">${a.icon}</span>
+          <div>
+            <div style="font-size:12px;font-weight:700;color:${a.unlocked ? 'var(--accent2)' : 'var(--text-dim)'};text-transform:uppercase;letter-spacing:1px;">${a.name}</div>
+            <div style="font-size:10px;color:var(--text-dim);">${a.desc}${a.unlocked ? ' ✅' : ''}</div>
+          </div>
+        </div>
+      `).join('');
+    } catch(e) {
+      const container = document.getElementById('ach-container');
+      if (container) container.innerHTML = '<div class="empty-state">Could not load achievements</div>';
     }
   }
 

@@ -264,6 +264,109 @@ CHALLENGES = [
     {'id': 'powerup_5', 'name': 'Collect 5 Power-ups', 'target': 5, 'reward': 100, 'metric': 'powerups'},
 ]
 
+# ── Achievements ────────────────────────────────────
+
+ACHIEVEMENTS = [
+    {'id': 'first_game', 'name': 'First Blood', 'desc': 'Play your first game', 'icon': '🎮'},
+    {'id': 'score_10000', 'name': 'High Scorer', 'desc': 'Score over 10,000 in one game', 'icon': '🏆'},
+    {'id': 'kill_10', 'name': 'Massacre', 'desc': 'Get 10 kills in one game', 'icon': '💀'},
+    {'id': 'kill_50', 'name': 'Destroyer', 'desc': '50 total kills', 'icon': '🔥'},
+    {'id': 'win_5', 'name': 'Champion', 'desc': 'Win 5 matches', 'icon': '👑'},
+    {'id': 'win_25', 'name': 'Arena King', 'desc': 'Win 25 matches', 'icon': '🏰'},
+    {'id': 'survive_180', 'name': 'Survivor', 'desc': 'Survive 180 seconds in one game', 'icon': '⏱️'},
+    {'id': 'games_10', 'name': 'Regular', 'desc': 'Play 10 games', 'icon': '🏎️'},
+    {'id': 'games_50', 'name': 'Veteran', 'desc': 'Play 50 games', 'icon': '⭐'},
+    {'id': 'all_powerups', 'name': 'Collector', 'desc': 'Use every power-up type', 'icon': '🎒'},
+    {'id': 'kos_tonight', 'name': 'Night Owl', 'desc': 'Play a game between midnight and 4am', 'icon': '🦉'},
+    {'id': 'score_25000', 'name': 'Legend', 'desc': 'Score over 25,000 in one game', 'icon': '🌟'},
+]
+
+@app.route('/api/achievements/<int:user_id>')
+def api_achievements(user_id):
+    """Compute achievements for a user based on their scores"""
+    conn = get_db()
+    
+    user = conn.execute('SELECT * FROM users WHERE id = ?', [user_id]).fetchone()
+    if not user:
+        conn.close()
+        return jsonify({'achievements': []})
+    
+    scores = conn.execute('SELECT * FROM scores WHERE user_id = ?', [user_id]).fetchall()
+    conn.close()
+    
+    if not scores:
+        return jsonify({'achievements': []})
+    
+    # Compute stats
+    total_games = len(scores)
+    total_kills = sum(s['kills'] or 0 for s in scores)
+    total_wins = user['wins'] or 0
+    best_score = max(s['score'] for s in scores)
+    best_kills = max(s['kills'] or 0 for s in scores)
+    best_survival = max(s['survival_time'] or 0 for s in scores)
+    
+    # Check night owl
+    night_owl = any(
+        s['played_at'] and 0 <= datetime.fromisoformat(s['played_at']).hour < 4
+        for s in scores
+    )
+    
+    # Collect all power-up types used (from car_type field - we track what they used)
+    used_car_types = set(s['car_type'] for s in scores if s['car_type'])
+    # Check if they've used all car types (proxy for variety)
+    
+    results = []
+    for ach in ACHIEVEMENTS:
+        unlocked = False
+        aid = ach['id']
+        
+        if aid == 'first_game' and total_games >= 1:
+            unlocked = True
+        elif aid == 'score_10000' and best_score >= 10000:
+            unlocked = True
+        elif aid == 'score_25000' and best_score >= 25000:
+            unlocked = True
+        elif aid == 'kill_10' and best_kills >= 10:
+            unlocked = True
+        elif aid == 'kill_50' and total_kills >= 50:
+            unlocked = True
+        elif aid == 'win_5' and total_wins >= 5:
+            unlocked = True
+        elif aid == 'win_25' and total_wins >= 25:
+            unlocked = True
+        elif aid == 'survive_180' and best_survival >= 180:
+            unlocked = True
+        elif aid == 'games_10' and total_games >= 10:
+            unlocked = True
+        elif aid == 'games_50' and total_games >= 50:
+            unlocked = True
+        elif aid == 'kos_tonight' and night_owl:
+            unlocked = True
+        elif aid == 'all_powerups' and len(used_car_types) >= 5:
+            unlocked = True
+        
+        results.append({
+            **ach,
+            'unlocked': unlocked,
+            'progress': f'{min(total_games, 50)}/50' if 'games' in aid else None,
+        })
+    
+    # Stats for display
+    stats = {
+        'total_games': total_games,
+        'total_kills': total_kills,
+        'total_wins': total_wins,
+        'best_score': best_score,
+        'best_kills': best_kills,
+        'unlocked_count': sum(1 for r in results if r['unlocked']),
+        'total_count': len(results),
+    }
+    
+    return jsonify({
+        'achievements': results,
+        'stats': stats,
+    })
+
 @app.route('/api/challenges')
 def api_challenges():
     """Get today's challenges"""
