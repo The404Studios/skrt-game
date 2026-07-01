@@ -638,7 +638,10 @@ class Renderer {
     ctx.fillStyle = '#00ff88';
     ctx.shadowColor = '#00ff88';
     ctx.shadowBlur = 10;
-    ctx.fillText(`SCORE: ${gs.score}`, this.width / 2, 20);
+    const scoreText = gs.streakMultiplier > 1 
+      ? `SCORE: ${gs.score} (${gs.streakMultiplier}x)` 
+      : `SCORE: ${gs.score}`;
+    ctx.fillText(scoreText, this.width / 2, 20);
     ctx.shadowBlur = 0;
 
     // Timer

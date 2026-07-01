@@ -187,8 +187,13 @@ export default class GameEngine {
     this.chatInput = '';
     
     // Spectator mode
-    this.spectating = null;  // car id being spectated
+    this.spectating = null;
     this.skidMarks = [];
+
+    // Kill streaks
+    this.killStreak = 0;
+    this.lastKillTime = 0;
+    this.scoreMultiplier = 1;
     // Race mode
     this.checkpoints = [];
     this.carCheckpoint = {};   // carId -> { checkpoint, lap, finished, finishTime }
@@ -1102,7 +1107,8 @@ export default class GameEngine {
       gameMode: this.config.gameMode,
       raceFinished: this.raceFinished,
       raceFinishOrder: this.raceFinishOrder,
-      totalLaps: RACE_LAPS,
+      streakMultiplier: this.scoreMultiplier,
+      timeRemaining: Math.ceil(this.timeRemaining),
     };
     this.renderer.render(gs);
 
@@ -1153,6 +1159,7 @@ export default class GameEngine {
       powerUps: this.powerUps,
       score: this.score,
       kills: this.kills,
+      streakMultiplier: this.scoreMultiplier,
       timeRemaining: 0,
     };
 
@@ -1557,17 +1564,36 @@ export default class GameEngine {
 
     if (car.isPlayer) {
       this.kills++;
+      this.killStreak = 0;
+      this.scoreMultiplier = 1;
       this.audio.stopEngine(car.id);
       this.killFeed.push({ text: `YOU WERE WRECKED!`, timer: 3, color: '#ff3d00' });
-      // Enter spectator mode
       this._enterSpectator();
     } else {
       this.kills++;
-      this.score += 100;
+      // Kill streak tracking
+      const now = performance.now() / 1000;
+      if (now - this.lastKillTime < 5) {
+        this.killStreak++;
+      } else {
+        this.killStreak = 1;
+      }
+      this.lastKillTime = now;
+      // Score multiplier: 1x, 2x, 3x, 4x, 5x...
+      this.scoreMultiplier = Math.min(this.killStreak, 5);
+      const streakBonus = 100 * this.scoreMultiplier;
+      this.score += streakBonus;
+
       if (killer && killer.isPlayer) {
-        this.killFeed.push({ text: `YOU 💥 ${car.name}`, timer: 2.5, color: '#00ff88' });
+        const streakText = this.killStreak > 1 ? ` ${this.killStreak}x STREAK!` : '';
+        this.killFeed.push({ text: `YOU 💥 ${car.name} +${streakBonus}${streakText}`, timer: 2.5, color: '#00ff88' });
       } else if (killer) {
         this.killFeed.push({ text: `${killer.name} 💥 ${car.name}`, timer: 2, color: '#ff8800' });
+        // AI taunts
+        const taunts = ['GET REKT!', 'EZ!', 'TOO SLOW!', 'BYE BYE!', 'SCRAP METAL!', 'NEXT!'];
+        if (car.isPlayer && Math.random() < 0.5) {
+          this.killFeed.push({ text: `${killer.name}: "${taunts[Math.floor(Math.random()*taunts.length)]}"`, timer: 2, color: '#ff3d00' });
+        }
       } else {
         this.killFeed.push({ text: `${car.name} WRECKED`, timer: 2, color: '#888' });
       }
