@@ -1,0 +1,14 @@
+SKRT DERBY - Public URL
+========================
+Game Server: http://localhost:5000
+Public URL: https://25fbdf1781829d88-47-36-149-241.serveousercontent.com
+Tunnel: ssh -R 80:localhost:5000 serveo.net
+Discord: Channel 1521444736312016907
+
+How to play with friends:
+1. Share the public URL above
+2. Everyone goes to /play
+3. Enter names and SAME room code (e.g. "arena1")
+4. Pick cars and battle!
+
+Note: Tunnel URL changes on restart. Use `ssh -R 80:localhost:5000 serveo.net` to get a new one.

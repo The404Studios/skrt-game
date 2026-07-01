@@ -257,7 +257,7 @@ class PhysicsEngine {
   applyPowerUp(car, type) {
     switch (type) {
       case 'repair':
-        car.health = Math.min(100, car.health + 30);
+        car.health = Math.min(car.maxHealth, car.health + 30);
         break;
       case 'speed':
         car.boostActive = true;
@@ -272,6 +272,18 @@ class PhysicsEngine {
       case 'ram':
         car.ramBonus = true;
         car.ramTimer = 8;
+        break;
+      case 'mine':
+        // Drop a mine behind the car
+        car.dropMine = true;
+        break;
+      case 'missile':
+        // Fire a missile forward
+        car.fireMissile = true;
+        break;
+      case 'oil':
+        // Drop an oil slick behind
+        car.dropOil = true;
         break;
     }
   }

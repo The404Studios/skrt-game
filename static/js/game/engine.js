@@ -1,480 +1,1120 @@
-// SKRT DERBY - Multiplayer Game Engine
-// Full multiplayer support via WebSocket
+// SKRT DERBY - GameEngine (ties all modules together)
+import AudioEngine from './audio.js';
+import InputHandler from './input.js';
+import PhysicsEngine from './physics.js';
+import Renderer from './renderer.js';
+import AIDriver from './ai.js';
 
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
-let W, H;
-
-function resize() { W = canvas.width = canvas.innerWidth; H = canvas.height = canvas.innerHeight; }
-resize(); window.addEventListener('resize', resize);
-
-// ── State ──────────────────────────────────────────
-let gameState = 'menu'; // menu -> lobby -> countdown -> playing -> gameover
-let playerId = null;
-let roomId = null;
-let ws = null;
-let myCar = null;
-let cars = {};
-let powerUps = [];
-let particles = [];
-let score = 0, kills = 0, timer = 120;
-let lastTime = 0;
-let keys = {};
-const ARENA_MARGIN = 60;
-
-// ── Car Configs ────────────────────────────────────
 const CAR_TYPES = {
-  brawler:  { speed:4.5, armor:150, handling:0.08, color:'#ff3d00', size:18, name:'Brawler' },
-  speedster:{ speed:6.5, armor:80,  handling:0.06, color:'#00ff88', size:15, name:'Speedster' },
-  tank:     { speed:2.8, armor:250, handling:0.04, color:'#4488ff', size:24, name:'Tank' },
-  drifter:  { speed:5.0, armor:100, handling:0.12, color:'#ff8800', size:17, name:'Drifter' },
-  lightning:{ speed:5.8, armor:70,  handling:0.09, color:'#ffff00', size:16, name:'Lightning' },
+  brawler:  { speed: 160, armor: 150, turnSpeed: 3.5,  width: 36, height: 22, color: '#ff3d00', name: 'Brawler' },
+  speedster:{ speed: 220, armor: 80,  turnSpeed: 3.0,  width: 30, height: 18, color: '#00ff88', name: 'Speedster' },
+  tank:     { speed: 110, armor: 250, turnSpeed: 2.2,  width: 48, height: 28, color: '#4488ff', name: 'Tank' },
+  drifter:  { speed: 170, armor: 110, turnSpeed: 4.5,  width: 34, height: 20, color: '#ff8800', name: 'Drifter' },
+  lightning:{ speed: 200, armor: 75,  turnSpeed: 3.8,  width: 32, height: 18, color: '#ffff00', name: 'Lightning' },
 };
 
-// ── Input ──────────────────────────────────────────
-window.addEventListener('keydown', e => { keys[e.key] = true; e.preventDefault(); });
-window.addEventListener('keyup', e => { keys[e.key] = false; });
-// Touch controls exposed globally
-window.pressKey = k => { keys[k] = true; };
-window.releaseKey = k => { keys[k] = false; };
+const POWERUP_TYPES = ['repair', 'speed', 'shield', 'ram', 'mine', 'missile', 'oil'];
+const AI_NAMES = ['CrashBot', 'Smasher', 'WreckKing', 'MetalMan', 'TurboG', 'Rusty', 'IronClad',
+                   'Venom', 'Blaze', 'Phantom', 'Crusher', 'Razor', 'Thunder', 'Inferno', 'Glitch'];
 
-// ── Particles ──────────────────────────────────────
-function spawnParticles(x, y, count, color) {
-  for (let i = 0; i < count; i++) {
-    particles.push({ x, y, vx:(Math.random()-0.5)*8, vy:(Math.random()-0.5)*8, life:30+Math.random()*20, maxLife:50, color, size:1+Math.random()*3 });
-  }
-}
+const ARENA_LAYOUTS = ['classic', 'circular', 'figure8', 'cross', 'gauntlet', 'open'];
 
-// ── PowerUps ───────────────────────────────────────
-function spawnPowerUp() {
-  const types = ['repair','repair','speed','speed','shield'];
-  const x = ARENA_MARGIN+30+Math.random()*(W-ARENA_MARGIN*2-60);
-  const y = ARENA_MARGIN+70+Math.random()*(H-ARENA_MARGIN*2-110);
-  powerUps.push({ id:Date.now()+Math.random(), x, y, type:types[Math.floor(Math.random()*types.length)], radius:10, pulse:0 });
-}
-
-// ── WebSocket ──────────────────────────────────────
-function connect(playerName, carType, room) {
-  const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  ws = new WebSocket(`${protocol}//${location.host}/ws/game`);
-  
-  ws.onopen = () => {
-    ws.send(JSON.stringify({ type:'join', room:room, name:playerName, car:carType }));
-    gameState = 'lobby';
-    updateOverlay('Waiting for players...', `Room: ${room}<br>Share this room code with friends!`, false);
+function generateArena(layout, width, height, random) {
+  const margin = 40;
+  const arena = {
+    x: margin,
+    y: margin,
+    width: width - margin * 2,
+    height: height - margin * 2,
+    walls: [],
+    layout,
   };
-  
-  ws.onmessage = (event) => {
-    const msg = JSON.parse(event.data);
-    
-    if (msg.type === 'player_joined') {
-      updateOverlay(`Players: ${msg.count}/8`, `Room: ${room}`, msg.count >= 2);
+
+  const aw = arena.width, ah = arena.height;
+  const ax = arena.x, ay = arena.y;
+
+  switch (layout) {
+    case 'circular':
+      // Central circular pillar
+      const cx = ax + aw / 2, cy = ay + ah / 2;
+      const r = Math.min(aw, ah) * 0.15;
+      // Approximate circle with small walls
+      const segments = 16;
+      for (let i = 0; i < segments; i++) {
+        const a1 = (i / segments) * Math.PI * 2;
+        const a2 = ((i + 1) / segments) * Math.PI * 2;
+        const x1 = cx + Math.cos(a1) * r;
+        const y1 = cy + Math.sin(a1) * r;
+        arena.walls.push({ x: x1, y: y1, width: 12, height: 12 });
+      }
+      // Corner obstacles
+      arena.walls.push({ x: ax + 20, y: ay + 20, width: 60, height: 20 });
+      arena.walls.push({ x: ax + aw - 80, y: ay + 20, width: 60, height: 20 });
+      arena.walls.push({ x: ax + 20, y: ay + ah - 40, width: 60, height: 20 });
+      arena.walls.push({ x: ax + aw - 80, y: ay + ah - 40, width: 60, height: 20 });
+      break;
+
+    case 'figure8':
+      // Two central obstacles creating figure-8 path
+      arena.walls.push({ x: ax + aw * 0.3 - 30, y: ay + ah * 0.35 - 30, width: 60, height: 60 });
+      arena.walls.push({ x: ax + aw * 0.7 - 30, y: ay + ah * 0.65 - 30, width: 60, height: 60 });
+      // Connecting walls
+      arena.walls.push({ x: ax + aw * 0.25, y: ay + ah * 0.5 - 10, width: aw * 0.5, height: 20 });
+      // Corner blockers
+      arena.walls.push({ x: ax, y: ay, width: 80, height: 20 });
+      arena.walls.push({ x: ax + aw - 80, y: ay, width: 80, height: 20 });
+      arena.walls.push({ x: ax, y: ay + ah - 20, width: 80, height: 20 });
+      arena.walls.push({ x: ax + aw - 80, y: ay + ah - 20, width: 80, height: 20 });
+      break;
+
+    case 'cross':
+      // Cross-shaped barriers
+      const cx2 = ax + aw / 2, cy2 = ay + ah / 2;
+      arena.walls.push({ x: cx2 - 15, y: ay + 50, width: 30, height: ah * 0.35 });
+      arena.walls.push({ x: cx2 - 15, y: ay + ah * 0.55, width: 30, height: ah * 0.35 });
+      arena.walls.push({ x: ax + 50, y: cy2 - 15, width: aw * 0.35, height: 30 });
+      arena.walls.push({ x: ax + aw * 0.55, y: cy2 - 15, width: aw * 0.35, height: 30 });
+      break;
+
+    case 'gauntlet':
+      // Zig-zag barriers
+      for (let i = 0; i < 6; i++) {
+        const gx = ax + (aw / 7) * (i + 1);
+        const gy = ay + (i % 2 === 0 ? ah * 0.25 : ah * 0.65);
+        arena.walls.push({ x: gx - 15, y: gy - 20, width: 30, height: 40 });
+      }
+      break;
+
+    case 'open':
+      // Minimal obstacles - just a few small pillars
+      const pw = Math.min(aw, ah);
+      arena.walls.push({ x: ax + aw * 0.3, y: ay + ah * 0.4, width: 20, height: 20 });
+      arena.walls.push({ x: ax + aw * 0.7, y: ay + ah * 0.6, width: 20, height: 20 });
+      arena.walls.push({ x: ax + aw * 0.5, y: ay + ah * 0.2, width: 20, height: 20 });
+      arena.walls.push({ x: ax + aw * 0.2, y: ay + ah * 0.7, width: 20, height: 20 });
+      break;
+
+    case 'classic':
+    default:
+      // Original random walls
+      const numWalls = 2 + Math.floor(random() * 4);
+      for (let i = 0; i < numWalls; i++) {
+        const isHorizontal = random() > 0.5;
+        const w = isHorizontal ? 80 + random() * 120 : 20 + random() * 30;
+        const h = isHorizontal ? 20 + random() * 30 : 80 + random() * 120;
+        const wx = ax + 100 + random() * (aw - 200 - w);
+        const wy = ay + 100 + random() * (ah - 200 - h);
+        arena.walls.push({ x: wx, y: wy, width: w, height: h });
+      }
+      break;
+  }
+
+  return arena;
+}
+
+export default class GameEngine {
+  constructor(canvas) {
+    this.canvas = canvas;
+    this.audio = new AudioEngine();
+    this.input = new InputHandler();
+    this.renderer = new Renderer(canvas);
+    this.physics = null;
+
+    this.state = 'menu'; // menu, countdown, playing, gameover
+    this.cars = [];
+    this.powerUps = [];
+    this.arena = null;
+    this.walls = [];
+    this.obstacles = [];
+
+    this.score = 0;
+    this.kills = 0;
+    this.timeRemaining = 120;
+    this.countdownTimer = 0;
+    this.lastTime = 0;
+    this.animFrame = null;
+
+    // Config
+    this.config = {
+      playerCount: 1,
+      totalCars: 8,
+      aiDifficulty: 'medium',
+      gameTime: 120,
+      volume: 0.5,
+      carType: 'brawler',
+      playerName: 'Racer',
+      arenaLayout: 'classic',
+      gameMode: 'deathmatch', // deathmatch, team, battleroyale
+    };
+
+    // AI drivers
+    this.aiDrivers = [];
+
+    // Multiplayer
+    this.ws = null;
+    this.playerId = null;
+    this.roomId = null;
+    this.multiplayer = false;
+    this.remotePlayers = {};
+
+    // Power-up spawn timer
+    this.powerUpTimer = 0;
+    this.maxPowerUps = 4;
+
+    // Environmental hazards
+    this.mines = [];
+    this.missiles = [];
+    this.oilSlicks = [];
+
+    // Game mode state
+    this.shrinkZone = null;   // { x, y, radius } for battle royale
+    this.shrinkTarget = null;
+    this.killFeed = [];        // [{ text, timer }]
+  }
+
+  setConfig(cfg) {
+    Object.assign(this.config, cfg);
+  }
+
+  init() {
+    this.audio.init();
+    this.renderer.resize(this.canvas.clientWidth, this.canvas.clientHeight);
+
+    window.addEventListener('resize', () => {
+      this.renderer.resize(this.canvas.clientWidth, this.canvas.clientHeight);
+    });
+
+    // Start game loop
+    this.lastTime = performance.now();
+    this._loop(this.lastTime);
+  }
+
+  destroy() {
+    if (this.animFrame) cancelAnimationFrame(this.animFrame);
+    this.input.destroy();
+    this.audio.stopMusic();
+    if (this.ws) this.ws.close();
+  }
+
+  // ── Multiplayer ────────────────────────────────────
+
+  connectMultiplayer(room, playerName, carType) {
+    this.multiplayer = true;
+    this.config.playerName = playerName;
+    this.config.carType = carType;
+    this.roomId = room;
+    this.playerId = playerName.toLowerCase().replace(/\s/g, '') + '_' + Math.random().toString(36).substr(2, 5);
+
+    const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    this.ws = new WebSocket(`${protocol}//${location.host}/ws/game`);
+
+    this.ws.onopen = () => {
+      this.ws.send(JSON.stringify({ type: 'join', room, name: playerName, car: carType }));
+      this.state = 'lobby';
+    };
+
+    this.ws.onmessage = (event) => {
+      const msg = JSON.parse(event.data);
+      this._handleWSMessage(msg);
+    };
+
+    this.ws.onclose = () => {
+      if (this.state === 'playing') {
+        this.state = 'gameover';
+      }
+    };
+
+    this.ws.onerror = () => {
+      // Fallback to single player
+      console.warn('WebSocket failed, falling back to single player');
+      this.multiplayer = false;
+      this.startSinglePlayer();
+    };
+  }
+
+  _handleWSMessage(msg) {
+    switch (msg.type) {
+      case 'player_joined':
+        this._onPlayerJoined(msg);
+        break;
+      case 'player_left':
+        this._onPlayerLeft(msg);
+        break;
+      case 'game_start':
+        this._onMultiplayerStart(msg);
+        break;
+      case 'game_update':
+        this._onGameUpdate(msg);
+        break;
+      case 'kill_feed':
+        this._onKillFeed(msg);
+        break;
+      case 'game_over':
+        this._onGameOver(msg);
+        break;
+      case 'chat':
+        // Chat handled elsewhere
+        break;
     }
-    
-    if (msg.type === 'game_start') {
-      startGame(msg.players, msg.seed);
+  }
+
+  _onPlayerJoined(msg) {
+    // Update lobby UI
+  }
+
+  _onPlayerLeft(msg) {
+    if (this.cars[msg.id]) {
+      this.renderer.spawnParticles(this.cars[msg.id].x, this.cars[msg.id].y, 20, '#ffffff');
+      this.cars[msg.id].health = 0;
     }
-    
-    if (msg.type === 'game_update') {
-      // Update other players' cars
-      if (msg.players) {
-        msg.players.forEach(p => {
-          if (p.id !== playerId) {
-            if (!cars[p.id]) {
-              cars[p.id] = { id:p.id, x:p.x, y:p.y, angle:p.angle, health:p.health, maxHealth:p.maxHealth, size:p.size||18, color:p.color||'#888', alive:true, name:p.name };
-            } else {
-              Object.assign(cars[p.id], { x:p.x, y:p.y, angle:p.angle, health:p.health, alive:p.alive });
-            }
-          }
+  }
+
+  _onMultiplayerStart(msg) {
+    this._startGame(msg.players, msg.seed);
+  }
+
+  _onGameUpdate(msg) {
+    if (msg.players) {
+      msg.players.forEach(p => {
+        if (p.id !== this.playerId && this.cars[p.id]) {
+          const car = this.cars[p.id];
+          car.x = p.x;
+          car.y = p.y;
+          car.angle = p.angle;
+          car.health = p.health;
+          car.speed = p.speed || 0;
+        }
+      });
+    }
+    if (msg.powerUps) this.powerUps = msg.powerUps;
+    if (msg.timer !== undefined) this.timeRemaining = msg.timer;
+  }
+
+  _onKillFeed(msg) {
+    // Flash kill message
+    this.renderer.addFlash('#ff3d00', 0.15);
+  }
+
+  _onGameOver(msg) {
+    this.state = 'gameover';
+    if (this.ws) this.ws.close();
+  }
+
+  _sendWS(data) {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify(data));
+    }
+  }
+
+  // ── Single Player Start ────────────────────────────
+
+  startSinglePlayer() {
+    this.multiplayer = false;
+    const players = {};
+
+    // Player
+    this.playerId = 'local_' + Math.random().toString(36).substr(2, 5);
+    players[this.playerId] = { id: this.playerId, name: this.config.playerName, car: this.config.carType, isPlayer: true };
+
+    // AI opponents
+    const aiCount = this.config.totalCars - this.config.playerCount;
+    const types = Object.keys(CAR_TYPES);
+    for (let i = 0; i < aiCount; i++) {
+      const type = types[Math.floor(Math.random() * types.length)];
+      const id = 'ai_' + i;
+      players[id] = { id, name: AI_NAMES[i % AI_NAMES.length], car: type, isPlayer: false };
+    }
+
+    this._startGame(players, Math.floor(Math.random() * 99999));
+  }
+
+  // ── Game Start ──────────────────────────────────────
+
+  _startGame(players, seed) {
+    // Seed RNG (simple)
+    let rng = seed;
+    const random = () => { rng = (rng * 16807) % 2147483647; return (rng - 1) / 2147483646; };
+
+    // Create arena
+    this.arena = generateArena(
+      this.config.arenaLayout || 'classic',
+      this.renderer.width,
+      this.renderer.height,
+      random
+    );
+
+    // Init physics
+    this.physics = new PhysicsEngine({
+      x: this.arena.x,
+      y: this.arena.y,
+      width: this.arena.width,
+      height: this.arena.height,
+    });
+    this.physics.setWalls(this.arena.walls);
+
+    // Reset state
+    this.cars = [];
+    this.powerUps = [];
+    this.mines = [];
+    this.missiles = [];
+    this.oilSlicks = [];
+    this.score = 0;
+    this.kills = 0;
+    this.timeRemaining = this.config.gameTime;
+    this.countdownTimer = 3;
+    this.aiDrivers = [];
+    this.powerUpTimer = 0;
+    this.killFeed = [];
+
+    // Battle royale: start with large zone
+    if (this.config.gameMode === 'battleroyale') {
+      this.shrinkZone = {
+        x: this.arena.x + this.arena.width / 2,
+        y: this.arena.y + this.arena.height / 2,
+        radius: Math.max(this.arena.width, this.arena.height) * 0.7,
+      };
+      this.shrinkTarget = {
+        x: this.arena.x + this.arena.width / 2 + (random() - 0.5) * this.arena.width * 0.3,
+        y: this.arena.y + this.arena.height / 2 + (random() - 0.5) * this.arena.height * 0.3,
+        radius: 120,
+      };
+    }
+
+    // Team assignments for team deathmatch
+    const numTeams = this.config.gameMode === 'team' ? 2 : 0;
+    const playerEntries = Object.entries(players);
+    const numAI = playerEntries.filter(([id, p]) => !p.isPlayer).length;
+    const teamAI = Math.ceil(numAI / numTeams);
+
+    // Spawn positions (around edges)
+    const spawns = this._generateSpawns(Object.keys(players).length, random);
+    let idx = 0;
+
+    for (const [id, p] of Object.entries(players)) {
+      const cfg = CAR_TYPES[p.car] || CAR_TYPES.brawler;
+      const [sx, sy] = spawns[idx++] || [this.renderer.width / 2, this.renderer.height / 2];
+      const angle = Math.atan2(this.renderer.height / 2 - sy, this.renderer.width / 2 - sx);
+
+      const car = {
+        id,
+        name: p.name,
+        x: sx,
+        y: sy,
+        angle,
+        speed: 0,
+        angularVel: 0,
+        maxSpeed: cfg.speed,
+        acceleration: cfg.speed * 0.015,
+        friction: 0.97,
+        turnSpeed: cfg.turnSpeed,
+        width: cfg.width,
+        height: cfg.height,
+        color: cfg.color,
+        health: cfg.armor,
+        maxHealth: cfg.armor,
+        isPlayer: p.isPlayer || false,
+        playerIndex: p.isPlayer ? 0 : -1,
+        team: numTeams > 0 ? (p.isPlayer ? 0 : Math.floor(idx / teamAI) % numTeams) : -1,
+        boostActive: false,
+        boostTimer: 0,
+        boostCooldown: 0,
+        shieldActive: false,
+        shieldTimer: 0,
+        ramBonus: false,
+        ramTimer: 0,
+        lastWallHit: 0,
+        input: { throttle: 0, brake: 0, steer: 0, boost: false },
+      };
+
+      this.cars.push(car);
+
+      // Create AI driver for non-player cars
+      if (!p.isPlayer) {
+        this.aiDrivers.push({
+          carId: id,
+          driver: new AIDriver(this.config.aiDifficulty),
         });
       }
-      // Sync powerups from host
-      if (msg.powerUps) powerUps = msg.powerUps;
-      if (msg.timer !== undefined) timer = msg.timer;
-    }
-    
-    if (msg.type === 'player_left') {
-      if (cars[msg.id]) { spawnParticles(cars[msg.id].x, cars[msg.id].y, 20, '#fff'); cars[msg.id].alive = false; }
-    }
-    
-    if (msg.type === 'game_over') {
-      gameState = 'gameover';
-      updateOverlay('Game Over!', `Final Score: ${msg.scores[playerId]||0} | Rank: ${msg.ranks[playerId]||'?'}`, true);
-    }
-    
-    if (msg.type === 'kill_feed') {
-      showKillFeed(msg.killer, msg.victim);
-    }
-  };
-  
-  ws.onclose = () => {
-    if (gameState === 'playing') {
-      updateOverlay('Disconnected', 'Connection to server lost', true);
-      gameState = 'menu';
-    }
-  };
-}
 
-function sendGameState() {
-  if (!ws || ws.readyState !== WebSocket.OPEN || !myCar) return;
-  ws.send(JSON.stringify({
-    type: 'game_state',
-    x: myCar.x, y: myCar.y, angle: myCar.angle,
-    speed: myCar.speed, health: myCar.health,
-  }));
-}
-
-// ── Game Start ─────────────────────────────────────
-function startGame(players, seed) {
-  gameState = 'countdown';
-  let countdown = 3;
-  cars = {};
-  powerUps = [];
-  particles = [];
-  score = 0; kills = 0; timer = 120;
-  
-  const spawns = [
-    [W*0.5, H*0.3], [W*0.3, H*0.7], [W*0.7, H*0.7],
-    [W*0.3, H*0.3], [W*0.7, H*0.3], [W*0.5, H*0.7],
-    [W*0.15, H*0.5], [W*0.85, H*0.5],
-  ];
-  
-  let i = 0;
-  Object.entries(players).forEach(([id, p]) => {
-    const [sx, sy] = spawns[i++] || [W*0.5, H*0.5];
-    const cfg = CAR_TYPES[p.car] || CAR_TYPES.brawler;
-    const car = { id, name:p.name, x:sx, y:sy, angle:Math.random()*Math.PI*2, speed:0, maxSpeed:cfg.speed, accel:0.15, friction:0.96, handling:cfg.handling, maxHealth:cfg.armor, health:cfg.armor, size:cfg.size, color:cfg.color, alive:true, isLocal:(id===playerId), flash:0, invincible:0 };
-    cars[id] = car;
-    if (id === playerId) myCar = car;
-  });
-  
-  hideOverlay();
-  
-  const countInterval = setInterval(() => {
-    showToast(countdown > 0 ? countdown : 'GO!', countdown === 0 ? '#00ff88' : '#ff3d00');
-    countdown--;
-    if (countdown < 0) { clearInterval(countInterval); gameState = 'playing'; hideToast(); }
-  }, 800);
-}
-
-// ── Car Update ─────────────────────────────────────
-function updateCar(car, dt) {
-  if (!car.alive) return;
-  car.invincible = Math.max(0, car.invincible - 1);
-  car.flash = Math.max(0, car.flash - 1);
-  
-  if (car.isLocal) {
-    if (keys['ArrowLeft']||keys['a']||keys['A']) car.angle -= car.handling;
-    if (keys['ArrowRight']||keys['d']||keys['D']) car.angle += car.handling;
-    if (keys['ArrowUp']||keys['w']||keys['W']) car.speed = Math.min(car.speed + car.accel, car.maxSpeed);
-    else if (keys['ArrowDown']||keys['s']||keys['S']) car.speed = Math.max(car.speed - car.accel*1.5, -car.maxSpeed*0.5);
-    else car.speed *= car.friction;
-  }
-  
-  car.x += Math.cos(car.angle) * car.speed;
-  car.y += Math.sin(car.angle) * car.speed;
-  
-  // Walls
-  if (car.x - car.size < ARENA_MARGIN) { car.x = ARENA_MARGIN + car.size; car.speed *= -0.3; damageCar(car, 5); }
-  if (car.x + car.size > W - ARENA_MARGIN) { car.x = W - ARENA_MARGIN - car.size; car.speed *= -0.3; damageCar(car, 5); }
-  if (car.y - car.size < ARENA_MARGIN + 40) { car.y = ARENA_MARGIN + 40 + car.size; car.speed *= -0.3; damageCar(car, 5); }
-  if (car.y + car.size > H - ARENA_MARGIN) { car.y = H - ARENA_MARGIN - car.size; car.speed *= -0.3; damageCar(car, 5); }
-  
-  if (car.health <= 0) {
-    car.alive = false;
-    spawnParticles(car.x, car.y, 30, car.color);
-    spawnParticles(car.x, car.y, 15, '#ffff00');
-    if (car.isLocal) { score += 50; kills++; } else { score += 100; }
-  }
-}
-
-function damageCar(car, amount) {
-  if (car.invincible > 0) return;
-  car.health -= amount;
-  car.flash = 8;
-  car.invincible = 5;
-}
-
-// ── Collisions ─────────────────────────────────────
-function checkCollisions() {
-  const carList = Object.values(cars);
-  for (let i = 0; i < carList.length; i++) {
-    for (let j = i + 1; j < carList.length; j++) {
-      const a = carList[i], b = carList[j];
-      if (!a.alive || !b.alive) continue;
-      const dist = Math.hypot(a.x - b.x, a.y - b.y);
-      const minDist = a.size + b.size;
-      if (dist < minDist && dist > 0) {
-        const nx = (b.x - a.x) / dist;
-        const ny = (b.y - a.y) / dist;
-        const overlap = minDist - dist;
-        a.x -= nx * overlap/2; a.y -= ny * overlap/2;
-        b.x += nx * overlap/2; b.y += ny * overlap/2;
-        const relSpeed = Math.abs(a.speed - b.speed) + Math.abs((a.speed+b.speed)/2)*0.5;
-        const dmg = Math.min(relSpeed * 4, 40);
-        damageCar(a, dmg); damageCar(b, dmg);
-        a.speed *= -0.5; b.speed *= -0.5;
-        if (a.isLocal || b.isLocal) spawnParticles((a.x+b.x)/2, (a.y+b.y)/2, 8, '#ff6600');
+      // Start engine sound for player
+      if (p.isPlayer) {
+        this.audio.startEngine(id);
       }
     }
+
+    // Start music
+    this.audio.startMusic();
+    this.audio.setMasterVolume(this.config.volume);
+
+    this.state = 'countdown';
   }
-  // Powerups
-  carList.forEach(car => {
-    if (!car.alive || !car.isLocal) return;
-    powerUps.forEach((p, idx) => {
-      if (Math.hypot(car.x-p.x, car.y-p.y) < car.size+p.radius) {
-        if (p.type==='repair') car.health = Math.min(car.health+40, car.maxHealth);
-        if (p.type==='speed') { car.maxSpeed*=1.5; setTimeout(()=>{if(car.alive)car.maxSpeed=CAR_TYPES[Object.keys(CAR_TYPES).find(k=>CAR_TYPES[k].color===car.color)||'brawler'].speed;},5000); }
-        if (p.type==='shield') car.invincible = 180;
-        powerUps.splice(idx,1); score += 25;
+
+  _generateSpawns(count, random) {
+    const spawns = [];
+    const margin = 60;
+    const w = this.renderer.width;
+    const h = this.renderer.height;
+
+    for (let i = 0; i < count; i++) {
+      const side = Math.floor(random() * 4);
+      let x, y;
+      switch (side) {
+        case 0: x = margin + random() * (w - margin * 2); y = margin; break; // top
+        case 1: x = w - margin; y = margin + random() * (h - margin * 2); break; // right
+        case 2: x = margin + random() * (w - margin * 2); y = h - margin; break; // bottom
+        case 3: x = margin; y = margin + random() * (h - margin * 2); break; // left
       }
+      spawns.push([x, y]);
+    }
+    return spawns;
+  }
+
+  // ── Game Loop ───────────────────────────────────────
+
+  _loop(timestamp) {
+    this.animFrame = requestAnimationFrame((t) => this._loop(t));
+    const dt = Math.min((timestamp - this.lastTime) / 1000, 0.05);
+    this.lastTime = timestamp;
+
+    if (this.state === 'menu') {
+      this._updateMenu(dt);
+    } else if (this.state === 'lobby') {
+      this._updateLobby(dt);
+    } else if (this.state === 'countdown') {
+      this._updateCountdown(dt);
+    } else if (this.state === 'playing') {
+      this._updatePlaying(dt);
+    } else if (this.state === 'gameover') {
+      this._updateGameOver(dt);
+    }
+  }
+
+  _updateMenu(dt) {
+    this.renderer.renderMenu();
+
+    // Check for start input
+    if (this.input.wasJustPressed('Enter') || this.input.wasJustPressed('Space')) {
+      this.startSinglePlayer();
+    }
+    // Touch/click to start
+    if (this.input.onAnyInput) {
+      // Will be triggered on first interaction
+    }
+  }
+
+  _updateLobby(dt) {
+    this.renderer.clear();
+    const ctx = this.renderer.ctx;
+    ctx.fillStyle = '#0a0a0f';
+    ctx.fillRect(0, 0, this.renderer.width, this.renderer.height);
+    ctx.fillStyle = '#00ff88';
+    ctx.font = 'bold 24px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('WAITING FOR PLAYERS...', this.renderer.width / 2, this.renderer.height / 2);
+    ctx.fillText(`Room: ${this.roomId}`, this.renderer.width / 2, this.renderer.height / 2 + 40);
+  }
+
+  _updateCountdown(dt) {
+    this.countdownTimer -= dt;
+
+    // Render arena with cars in starting positions
+    this.renderer.clear();
+    const ctx = this.renderer.ctx;
+
+    // Draw arena
+    ctx.fillStyle = '#111122';
+    ctx.fillRect(this.arena.x, this.arena.y, this.arena.width, this.arena.height);
+    ctx.strokeStyle = '#ff3d00';
+    ctx.lineWidth = 3;
+    ctx.shadowColor = '#ff3d00';
+    ctx.shadowBlur = 15;
+    ctx.strokeRect(this.arena.x, this.arena.y, this.arena.width, this.arena.height);
+    ctx.shadowBlur = 0;
+
+    this.renderer.update(dt);
+
+    // Countdown number
+    const num = Math.ceil(this.countdownTimer);
+    const alpha = this.countdownTimer % 1;
+    ctx.fillStyle = num > 0 ? `rgba(255, 61, 0, ${alpha < 0.5 ? alpha * 2 : 1})` : '#00ff88';
+    ctx.font = `bold ${Math.min(120, this.renderer.width / 6)}px monospace`;
+    ctx.textAlign = 'center';
+    ctx.shadowColor = ctx.fillStyle;
+    ctx.shadowBlur = 40;
+    ctx.fillText(num > 0 ? num : 'GO!', this.renderer.width / 2, this.renderer.height / 2);
+    ctx.shadowBlur = 0;
+
+    // Draw cars at spawn
+    for (const car of this.cars) {
+      this.renderer._drawCar(car);
+    }
+
+    if (this.countdownTimer <= -0.5) {
+      this.state = 'playing';
+      this.audio.countdownGo();
+    } else if (num > 0 && Math.abs(this.countdownTimer - Math.round(this.countdownTimer)) < dt) {
+      this.audio.countdown();
+    }
+  }
+
+  _updatePlaying(dt) {
+    this.timeRemaining -= dt;
+
+    // Update renderer (camera shake, particles, etc)
+    this.renderer.update(dt);
+
+    // Spawn power-ups
+    this.powerUpTimer += dt;
+    if (this.powerUpTimer > 4 && this.powerUps.length < this.maxPowerUps) {
+      this.powerUpTimer = 0;
+      this._spawnPowerUp();
+    }
+
+    // Process player inputs
+    const players = this.cars.filter(c => c.isPlayer);
+    for (const car of players) {
+      car.input = this.input.getPlayerInput(car.playerIndex);
+    }
+
+    // Process AI
+    for (const ai of this.aiDrivers) {
+      const car = this.cars.find(c => c.id === ai.carId);
+      if (car && car.health > 0) {
+        car.input = ai.driver.update(car, this.cars, this.arena.walls, this.powerUps, this.arena, dt);
+      }
+    }
+
+    // Update physics
+    let totalKills = 0;
+    for (const car of this.cars) {
+      if (car.health <= 0) continue;
+
+      this.physics.updateCar(car, dt);
+
+      // Wall collisions
+      const wallHit = this.physics.checkWallCollisions(car);
+      if (wallHit.collided && wallHit.impactForce > 5) {
+        if (car.isPlayer) {
+          this.renderer.addScreenShake(wallHit.impactForce * 0.03, 0.15);
+          this.renderer.spawnSparks(wallHit.point.x, wallHit.point.y, 5, '#ff6600');
+          this.audio.crash(wallHit.impactForce * 0.02);
+        }
+      }
+
+      // Car collisions
+      const carHit = this.physics.checkCarCollisions(car, this.cars);
+      if (carHit.collided) {
+        if (car.isPlayer || (carHit.otherCar && carHit.otherCar.isPlayer)) {
+          this.renderer.addScreenShake(carHit.impactForce * 0.02, 0.2);
+          this.renderer.spawnSparks(carHit.point.x, carHit.point.y, 10, '#ffaa00');
+          this.renderer.spawnParticles(carHit.point.x, carHit.point.y, 6, '#ff6600', 2, 0.4);
+          this.audio.crash(carHit.impactForce * 0.03);
+        }
+      }
+
+      // Power-up timers
+      this.physics.updateCarTimers(car, dt);
+
+      // Check for car death
+      if (car.health <= 0) {
+        this._onCarDeath(car);
+      }
+    }
+
+    // Power-up collection
+    const collected = this.physics.updatePowerUps(this.powerUps, this.cars, dt);
+    for (const pu of collected) {
+      const collector = this.cars.find(c => {
+        const dx = c.x - pu.x, dy = c.y - pu.y;
+        return Math.sqrt(dx * dx + dy * dy) < 30;
+      });
+      if (collector && collector.isPlayer) {
+        this.audio.powerUp();
+        this.score += 25;
+      }
+    }
+
+    // ── New power-up effects ──────────────────────────
+    // Mines — place behind car, damage anyone who drives over them
+    for (const car of this.cars) {
+      if (car.health <= 0) continue;
+      if (car.dropMine) {
+        car.dropMine = false;
+        const bx = car.x - Math.cos(car.angle) * car.width;
+        const by = car.y - Math.sin(car.angle) * car.width;
+        this.mines.push({ x: bx, y: by, life: 15, ownerId: car.id });
+        if (car.isPlayer) this.score += 10;
+      }
+      if (car.fireMissile) {
+        car.fireMissile = false;
+        this.missiles.push({
+          x: car.x, y: car.y,
+          vx: Math.cos(car.angle) * 400,
+          vy: Math.sin(car.angle) * 400,
+          life: 2, ownerId: car.id
+        });
+        if (car.isPlayer) this.score += 10;
+      }
+      if (car.dropOil) {
+        car.dropOil = false;
+        const ox = car.x - Math.cos(car.angle) * car.width;
+        const oy = car.y - Math.sin(car.angle) * car.width;
+        this.oilSlicks.push({ x: ox, y: oy, life: 10, radius: 30 + Math.random() * 20 });
+        if (car.isPlayer) this.score += 5;
+      }
+    }
+
+    // Update mines — check car collisions
+    for (let mi = this.mines.length - 1; mi >= 0; mi--) {
+      const mine = this.mines[mi];
+      mine.life -= dt;
+      if (mine.life <= 0) { this.mines.splice(mi, 1); continue; }
+      for (const car of this.cars) {
+        if (car.health <= 0 || car.id === mine.ownerId) continue;
+        const dx = car.x - mine.x, dy = car.y - mine.y;
+        if (Math.sqrt(dx*dx + dy*dy) < car.width/2 + 12) {
+          car.health -= 40;
+          car.speed *= 0.3;
+          this.renderer.spawnParticles(mine.x, mine.y, 15, '#ff3d00', 3, 0.5);
+          this.renderer.addScreenShake(8, 0.3);
+          this.audio.explosion();
+          if (car.isPlayer) this.score += 50;
+          this.mines.splice(mi, 1);
+          break;
+        }
+      }
+    }
+
+    // Update missiles
+    for (let mi = this.missiles.length - 1; mi >= 0; mi--) {
+      const missile = this.missiles[mi];
+      missile.x += missile.vx * dt;
+      missile.y += missile.vy * dt;
+      missile.life -= dt;
+      if (missile.life <= 0) { this.missiles.splice(mi, 1); continue; }
+      // Wall bounce
+      if (missile.x < this.arena.x || missile.x > this.arena.x + this.arena.width ||
+          missile.y < this.arena.y || missile.y > this.arena.y + this.arena.height) {
+        this.renderer.spawnParticles(missile.x, missile.y, 8, '#ff8800', 2, 0.3);
+        this.missiles.splice(mi, 1); continue;
+      }
+      for (const wall of this.arena.walls) {
+        if (missile.x >= wall.x && missile.x <= wall.x + wall.width &&
+            missile.y >= wall.y && missile.y <= wall.y + wall.height) {
+          this.renderer.spawnParticles(missile.x, missile.y, 8, '#ff8800', 2, 0.3);
+          this.missiles.splice(mi, 1); break;
+        }
+      }
+      if (mi < 0 || mi >= this.missiles.length) continue;
+      // Hit cars
+      for (const car of this.cars) {
+        if (car.health <= 0 || car.id === missile.ownerId) continue;
+        const dx = car.x - missile.x, dy = car.y - missile.y;
+        if (Math.sqrt(dx*dx + dy*dy) < car.width/2 + 6) {
+          car.health -= 30;
+          car.speed *= 0.5;
+          this.renderer.spawnParticles(missile.x, missile.y, 10, '#ff8800', 2, 0.4);
+          this.renderer.addScreenShake(5, 0.2);
+          if (car.isPlayer) this.score += 75;
+          this.missiles.splice(mi, 1);
+          break;
+        }
+      }
+    }
+
+    // Update oil slicks — slow cars
+    for (let oi = this.oilSlicks.length - 1; oi >= 0; oi--) {
+      const oil = this.oilSlicks[oi];
+      oil.life -= dt;
+      if (oil.life <= 0) { this.oilSlicks.splice(oi, 1); continue; }
+      for (const car of this.cars) {
+        if (car.health <= 0) continue;
+        const dx = car.x - oil.x, dy = car.y - oil.y;
+        if (Math.sqrt(dx*dx + dy*dy) < oil.radius) {
+          car.speed *= 0.85;
+          // Skid effect
+          if (Math.random() < 0.1 && car.isPlayer) {
+            car.angularVel += (Math.random() - 0.5) * 2;
+          }
+        }
+      }
+    }
+
+    // Update engine sounds
+    for (const car of this.cars) {
+      if (car.isPlayer && car.health > 0) {
+        this.audio.updateEngine(car.id, car.speed, car.health);
+      }
+    }
+
+    // Score over time
+    this.score += Math.floor(dt * 10);
+
+    // Send multiplayer state
+    if (this.multiplayer) {
+      this._sendWS({
+        type: 'game_state',
+        x: this.cars.find(c => c.isPlayer)?.x || 0,
+        y: this.cars.find(c => c.isPlayer)?.y || 0,
+        angle: this.cars.find(c => c.isPlayer)?.angle || 0,
+        health: this.cars.find(c => c.isPlayer)?.health || 0,
+      });
+    }
+
+    // ── Battle Royale shrink zone ─────────────────────
+    if (this.config.gameMode === 'battleroyale' && this.shrinkZone && this.shrinkTarget) {
+      // Shrink zone toward target
+      this.shrinkZone.radius += (this.shrinkTarget.radius - this.shrinkZone.radius) * 0.003;
+      this.shrinkZone.x += (this.shrinkTarget.x - this.shrinkZone.x) * 0.003;
+      this.shrinkZone.y += (this.shrinkTarget.y - this.shrinkZone.y) * 0.003;
+
+      // Damage cars outside zone
+      for (const car of this.cars) {
+        if (car.health <= 0) continue;
+        const dx = car.x - this.shrinkZone.x;
+        const dy = car.y - this.shrinkZone.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist > this.shrinkZone.radius) {
+          car.health -= 15 * dt;
+          if (car.isPlayer) {
+            this.renderer.addFlash('#ff3d0044', 0.1);
+          }
+        }
+      }
+    }
+
+    // ── Team deathmatch check ─────────────────────────
+    if (this.config.gameMode === 'team') {
+      const team0Alive = this.cars.some(c => c.team === 0 && c.health > 0);
+      const team1Alive = this.cars.some(c => c.team === 1 && c.health > 0);
+      if (!team0Alive || !team1Alive) {
+        this._endGame();
+        return;
+      }
+    }
+
+    // ── Update kill feed ──────────────────────────────
+    for (let i = this.killFeed.length - 1; i >= 0; i--) {
+      this.killFeed[i].timer -= dt;
+      if (this.killFeed[i].timer <= 0) this.killFeed.splice(i, 1);
+    }
+
+    // Game over check
+    const alivePlayers = this.cars.filter(c => c.health > 0);
+    const playerAlive = alivePlayers.some(c => c.isPlayer);
+
+    if (this.timeRemaining <= 0 || !playerAlive || (alivePlayers.length <= 1 && this.cars.length > 1 && this.config.gameMode !== 'team')) {
+      this._endGame();
+      return;
+    }
+
+    // Render
+    const gs = {
+      arena: this.arena,
+      cars: this.cars,
+      powerUps: this.powerUps,
+      score: this.score,
+      kills: this.kills,
+      timeRemaining: Math.ceil(this.timeRemaining),
+    };
+    this.renderer.render(gs);
+
+    // Draw environmental hazards
+    this._drawHazards();
+
+    // Draw shrink zone for battle royale
+    if (this.config.gameMode === 'battleroyale' && this.shrinkZone) {
+      this._drawShrinkZone();
+    }
+
+    // Draw kill feed
+    this._drawKillFeed();
+
+    // Update input state
+    this.input.update();
+  }
+
+  _updateGameOver(dt) {
+    this.renderer.update(dt);
+
+    // Keep rendering the last frame for a moment
+    const gs = {
+      arena: this.arena,
+      cars: this.cars,
+      powerUps: this.powerUps,
+      score: this.score,
+      kills: this.kills,
+      timeRemaining: 0,
+    };
+
+    this.renderer.clear();
+    const ctx = this.renderer.ctx;
+    ctx.fillStyle = '#111122';
+    ctx.fillRect(this.arena.x, this.arena.y, this.arena.width, this.arena.height);
+    ctx.strokeStyle = '#ff3d00';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(this.arena.x, this.arena.y, this.arena.width, this.arena.height);
+
+    // Draw dead cars
+    for (const car of this.cars) {
+      if (car.health > 0) {
+        this.renderer._drawCar(car);
+      } else {
+        this.renderer._drawWreck(car);
+      }
+    }
+
+    this.renderer._drawParticles();
+    this.renderer._drawSparks();
+
+    // Game over overlay
+    const player = this.cars.find(c => c.isPlayer);
+    const won = player && player.health > 0 && this.cars.filter(c => c.health > 0).length <= 1;
+
+    ctx.fillStyle = '#000000cc';
+    ctx.fillRect(0, 0, this.renderer.width, this.renderer.height);
+
+    ctx.textAlign = 'center';
+    ctx.font = `bold ${Math.min(60, this.renderer.width / 12)}px monospace`;
+    if (won) {
+      ctx.fillStyle = '#00ff88';
+      ctx.shadowColor = '#00ff88';
+      ctx.shadowBlur = 30;
+      ctx.fillText('VICTORY!', this.renderer.width / 2, this.renderer.height / 2 - 80);
+    } else {
+      ctx.fillStyle = '#ff3d00';
+      ctx.shadowColor = '#ff3d00';
+      ctx.shadowBlur = 30;
+      ctx.fillText('WRECKED!', this.renderer.width / 2, this.renderer.height / 2 - 80);
+    }
+    ctx.shadowBlur = 0;
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '18px monospace';
+    ctx.fillText(`Score: ${this.score} | Kills: ${this.kills}`, this.renderer.width / 2, this.renderer.height / 2 - 20);
+
+    // Rankings
+    ctx.font = '13px monospace';
+    ctx.fillText('--- RANKINGS ---', this.renderer.width / 2, this.renderer.height / 2 + 15);
+    const sorted = [...this.cars].sort((a, b) => b.health - a.health);
+    sorted.forEach((car, i) => {
+      const name = car.isPlayer ? 'YOU' : (car.name || `Car ${i + 1}`);
+      const status = car.health > 0 ? 'ALIVE' : 'WRECKED';
+      ctx.fillStyle = car.isPlayer ? '#00ff88' : '#888888';
+      ctx.fillText(`${i + 1}. ${name} - ${status}`, this.renderer.width / 2, this.renderer.height / 2 + 40 + i * 20);
     });
-  });
-}
 
-// ── Render ─────────────────────────────────────────
-function drawArena() {
-  ctx.fillStyle = '#1a1a0a'; ctx.fillRect(0, 0, W, H);
-  ctx.strokeStyle = 'rgba(255,255,255,0.03)'; ctx.lineWidth = 1;
-  for (let x = ARENA_MARGIN; x < W - ARENA_MARGIN; x += 40) { ctx.beginPath(); ctx.moveTo(x, ARENA_MARGIN+40); ctx.lineTo(x, H-ARENA_MARGIN); ctx.stroke(); }
-  for (let y = ARENA_MARGIN+40; y < H - ARENA_MARGIN; y += 40) { ctx.beginPath(); ctx.moveTo(ARENA_MARGIN, y); ctx.lineTo(W-ARENA_MARGIN, y); ctx.stroke(); }
-  ctx.strokeStyle = '#ff3d00'; ctx.lineWidth = 4;
-  ctx.strokeRect(ARENA_MARGIN, ARENA_MARGIN+40, W-ARENA_MARGIN*2, H-ARENA_MARGIN*2-40);
-  ctx.fillStyle = '#222'; ctx.fillRect(W/2-30, H/2-30, 60, 60);
-  ctx.fillStyle = '#333'; ctx.fillRect(W/2-22, H/2-22, 44, 44);
-}
+    // Restart prompt
+    const alpha = 0.5 + Math.sin(performance.now() * 0.003) * 0.5;
+    ctx.fillStyle = `rgba(255, 61, 0, ${alpha})`;
+    ctx.font = 'bold 18px monospace';
+    ctx.fillText('PRESS ENTER TO PLAY AGAIN', this.renderer.width / 2,
+      this.renderer.height / 2 + 40 + sorted.length * 20 + 20);
 
-function drawCar(car) {
-  if (!car.alive) return;
-  ctx.save(); ctx.translate(car.x, car.y); ctx.rotate(car.angle);
-  const c = car.flash > 0 ? '#fff' : car.color;
-  ctx.fillStyle = c;
-  ctx.fillRect(-car.size, -car.size*0.65, car.size*2, car.size*1.3);
-  ctx.fillStyle = '#1a1a2e';
-  ctx.fillRect(car.size*0.3, -car.size*0.4, car.size*0.8, car.size*0.8);
-  ctx.fillStyle = '#111';
-  ctx.fillRect(-car.size-3, -car.size*0.7, 6, car.size*0.35); ctx.fillRect(-car.size-3, car.size*0.35, 6, car.size*0.35);
-  ctx.fillRect(car.size-3, -car.size*0.7, 6, car.size*0.35); ctx.fillRect(car.size-3, car.size*0.35, 6, car.size*0.35);
-  if (car.isLocal) { ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(car.size+5,0,3,0,Math.PI*2); ctx.fill(); }
-  // Name tag
-  ctx.fillStyle = '#fff'; ctx.font = 'bold 11px monospace'; ctx.textAlign = 'center';
-  ctx.fillText(car.name||'', 0, -car.size-16);
-  // Health bar
-  const bw = car.size*2.5, hp = car.health/car.maxHealth;
-  ctx.fillStyle = '#333'; ctx.fillRect(-bw/2, -car.size-10, bw, 3);
-  ctx.fillStyle = hp>0.5?'#0f0':hp>0.25?'#ff0':'#f00';
-  ctx.fillRect(-bw/2, -car.size-10, bw*hp, 3);
-  ctx.restore();
-}
-
-function drawPowerUps() {
-  const colors = { repair:'#00ff88', speed:'#ffdd00', shield:'#00d4ff' };
-  powerUps.forEach(p => {
-    p.pulse += 0.1;
-    ctx.fillStyle = colors[p.type]||'#fff';
-    ctx.globalAlpha = 0.6 + Math.sin(p.pulse)*0.4;
-    ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI*2); ctx.fill();
-    ctx.strokeStyle='#fff'; ctx.lineWidth=1; ctx.stroke();
-    ctx.globalAlpha=1;
-    ctx.fillStyle='#000'; ctx.font='bold 8px monospace'; ctx.textAlign='center';
-    ctx.fillText(p.type[0].toUpperCase(), p.x, p.y+3);
-  });
-}
-
-function drawParticles() {
-  particles.forEach(p => {
-    const a = p.life/p.maxLife;
-    ctx.fillStyle = p.color; ctx.globalAlpha = a;
-    ctx.fillRect(p.x-p.size/2, p.y-p.size/2, p.size, p.size);
-  });
-  ctx.globalAlpha = 1;
-}
-
-// ── UI ─────────────────────────────────────────────
-const overlayEl = document.getElementById('overlay');
-const overlayTitle = document.getElementById('overlayTitle');
-const overlayMsg = document.getElementById('overlayMsg');
-const toastEl = document.getElementById('toast') || createToast();
-
-function createToast() {
-  const el = document.createElement('div');
-  el.id = 'toast';
-  el.style.cssText = 'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-family:Orbitron;font-size:4rem;font-weight:900;color:#fff;text-shadow:0 0 20px #ff3d00;pointer-events:none;z-index:50;display:none';
-  document.getElementById('canvasWrap').appendChild(el);
-  return el;
-}
-
-function showToast(text, color) { toastEl.textContent = text; toastEl.style.color = color||'#fff'; toastEl.style.display = 'block'; }
-function hideToast() { toastEl.style.display = 'none'; }
-
-function updateOverlay(title, msg, showBtn) {
-  overlayEl.style.display = 'flex';
-  overlayTitle.textContent = title;
-  overlayMsg.innerHTML = msg + (showBtn ? '<br><br><button class="btn" onclick="location.reload()">🔄 PLAY AGAIN</button>' : '');
-}
-function hideOverlay() { overlayEl.style.display = 'none'; }
-
-let killFeedTimer = null;
-function showKillFeed(killer, victim) {
-  const el = document.getElementById('killFeed') || (() => { const e=document.createElement('div'); e.id='killFeed'; e.style.cssText='position:absolute;top:50px;right:10px;color:#ff3d00;font-weight:700;font-size:0.9rem;z-index:50'; document.getElementById('canvasWrap').appendChild(e); return e; })();
-  el.textContent = `${killer} 💥 ${victim}`; el.style.display='block';
-  clearTimeout(killFeedTimer); killFeedTimer = setTimeout(() => el.style.display='none', 3000);
-}
-
-// ── HUD ────────────────────────────────────────────
-function updateHUD() {
-  const alive = Object.values(cars).filter(c => c.alive).length;
-  document.getElementById('gameInfo').textContent = `Time: ${Math.ceil(Math.max(0,timer))}s | Score: ${score} | Kills: ${kills} | Alive: ${alive}`;
-}
-
-// ── Game Loop ──────────────────────────────────────
-let powerUpTimer = 0;
-let lastSendTime = 0;
-
-function gameLoop(timestamp) {
-  const dt = Math.min((timestamp - lastTime)/1000, 0.05);
-  lastTime = timestamp;
-  
-  if (gameState === 'playing' && myCar) {
-    timer -= dt;
-    updateCar(myCar, dt);
-    
-    // Host spawns powerups (first player acts as host)
-    const isHost = Object.keys(cars)[0] === playerId;
-    if (isHost) {
-      powerUpTimer += dt;
-      if (powerUpTimer > 5 && powerUps.length < 4) { spawnPowerUp(); powerUpTimer = 0; }
+    // Check for restart
+    if (this.input.wasJustPressed('Enter') || this.input.wasJustPressed('Space')) {
+      this.startSinglePlayer();
     }
-    
-    checkCollisions();
-    score += Math.floor(dt * 10);
-    particles.forEach(p => { p.x += p.vx; p.y += p.vy; p.life--; });
-    particles = particles.filter(p => p.life > 0);
-    
-    // Send state to server
-    if (timestamp - lastSendTime > 50) {
-      sendGameState();
-      lastSendTime = timestamp;
-      // Also broadcast powerups/timer if host
-      if (isHost) {
-        ws.send(JSON.stringify({ type:'game_state', host:true, powerUps, timer }));
+  }
+
+  // ── Hazard Drawing ─────────────────────────────────
+
+  _drawHazards() {
+    const ctx = this.renderer.ctx;
+
+    // Draw mines
+    for (const mine of this.mines) {
+      const pulse = 1 + Math.sin(Date.now() * 0.01) * 0.2;
+      ctx.fillStyle = '#ff3d00';
+      ctx.shadowColor = '#ff3d00';
+      ctx.shadowBlur = 10;
+      ctx.beginPath();
+      ctx.arc(mine.x, mine.y, 8 * pulse, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.arc(mine.x, mine.y, 3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+
+    // Draw missiles
+    for (const missile of this.missiles) {
+      ctx.fillStyle = '#ff8800';
+      ctx.shadowColor = '#ff8800';
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.arc(missile.x, missile.y, 4, 0, Math.PI * 2);
+      ctx.fill();
+      // Trail
+      ctx.strokeStyle = '#ff880088';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(missile.x, missile.y);
+      ctx.lineTo(missile.x - missile.vx * 0.03, missile.y - missile.vy * 0.03);
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+    }
+
+    // Draw oil slicks
+    for (const oil of this.oilSlicks) {
+      const alpha = Math.min(1, oil.life / 3);
+      ctx.fillStyle = `rgba(40, 30, 50, ${alpha * 0.5})`;
+      ctx.beginPath();
+      ctx.arc(oil.x, oil.y, oil.radius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = `rgba(100, 80, 120, ${alpha * 0.4})`;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+  }
+
+  // ── Shrink Zone Drawing ───────────────────────────
+
+  _drawShrinkZone() {
+    if (!this.shrinkZone) return;
+    const ctx = this.renderer.ctx;
+    const z = this.shrinkZone;
+
+    // Outer danger zone
+    const outerRadius = z.radius + 60;
+    ctx.fillStyle = 'rgba(255, 30, 0, 0.08)';
+    ctx.beginPath();
+    ctx.arc(z.x, z.y, outerRadius, 0, Math.PI * 2);
+    ctx.arc(z.x, z.y, z.radius, 0, Math.PI * 2, true);
+    ctx.fill();
+
+    // Zone border
+    ctx.strokeStyle = '#ff3d00';
+    ctx.lineWidth = 2;
+    ctx.shadowColor = '#ff3d00';
+    ctx.shadowBlur = 15;
+    ctx.setLineDash([10, 5]);
+    ctx.beginPath();
+    ctx.arc(z.x, z.y, z.radius, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.shadowBlur = 0;
+
+    // Safe zone center
+    ctx.strokeStyle = '#00ff8844';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(z.x, z.y, this.shrinkTarget.radius, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  // ── Kill Feed Drawing ─────────────────────────────
+
+  _drawKillFeed() {
+    const ctx = this.renderer.ctx;
+    const startY = 70;
+    for (let i = 0; i < this.killFeed.length; i++) {
+      const kf = this.killFeed[i];
+      const alpha = Math.min(1, kf.timer / 0.5);
+      ctx.fillStyle = kf.color;
+      ctx.globalAlpha = alpha;
+      ctx.font = 'bold 13px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(kf.text, this.renderer.width / 2, startY + i * 22);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // ── Power-ups ──────────────────────────────────────
+
+  _spawnPowerUp() {
+    const type = POWERUP_TYPES[Math.floor(Math.random() * POWERUP_TYPES.length)];
+    const ax = this.arena.x + 50 + Math.random() * (this.arena.width - 100);
+    const ay = this.arena.y + 50 + Math.random() * (this.arena.height - 100);
+
+    // Don't spawn inside walls
+    for (const wall of this.arena.walls) {
+      if (ax >= wall.x - 20 && ax <= wall.x + wall.width + 20 &&
+          ay >= wall.y - 20 && ay <= wall.y + wall.height + 20) {
+        return; // Skip this spawn
       }
     }
-    
-    if (!myCar.alive) {
-      gameState = 'gameover';
-      updateOverlay('WRECKED!', `Score: ${score} | Kills: ${kills}`, true);
-      ws.send(JSON.stringify({ type:'score', score, kills }));
-    }
-    if (timer <= 0) {
-      gameState = 'gameover';
-      score += myCar.health * 2;
-      updateOverlay('TIME\'S UP!', `Final Score: ${score} | Kills: ${kills}`, true);
-      ws.send(JSON.stringify({ type:'score', score, kills }));
-    }
-    updateHUD();
-  }
-  
-  // Render
-  drawArena();
-  drawPowerUps();
-  const sorted = Object.values(cars).sort((a,b) => a.y - b.y);
-  sorted.forEach(c => drawCar(c));
-  drawParticles();
-  
-  requestAnimationFrame(gameLoop);
-}
 
-// ── Public API ─────────────────────────────────────
-window.startMultiplayer = function(name, carType, room) {
-  playerId = name.toLowerCase().replace(/\s/g,'') + '_' + Math.random().toString(36).substr(2,5);
-  roomId = room;
-  connect(name, carType, room);
-};
-
-window.joinRoom = function(name, carType, room) {
-  playerId = name.toLowerCase().replace(/\s/g,'') + '_' + Math.random().toString(36).substr(2,5);
-  roomId = room;
-  connect(name, carType, room);
-};
-
-// ── AI Mode (fallback) ─────────────────────────────
-window.startSinglePlayer = function(carType) {
-  playerId = 'local_' + Math.random().toString(36).substr(2,5);
-  gameState = 'countdown';
-  cars = {}; powerUps = []; particles = []; score = 0; kills = 0; timer = 90;
-  
-  const cfg = CAR_TYPES[carType] || CAR_TYPES.brawler;
-  myCar = { id:playerId, name:'You', x:W*0.5, y:H*0.8, angle:-Math.PI/2, speed:0, maxSpeed:cfg.speed, accel:0.15, friction:0.96, handling:cfg.handling, maxHealth:cfg.armor, health:cfg.armor, size:cfg.size, color:cfg.color, alive:true, isLocal:true, flash:0, invincible:0 };
-  cars[playerId] = myCar;
-  
-  // AI opponents
-  const types = ['brawler','speedster','tank','drifter','lightning'];
-  const aiNames = ['CrashBot','Smasher','WreckKing','MetalMan','TurboG','Rusty','IronClad'];
-  for (let i = 0; i < 7; i++) {
-    const t = types[Math.floor(Math.random()*types.length)];
-    const tc = CAR_TYPES[t];
-    const ai = { id:'ai_'+i, name:aiNames[i], x:ARENA_MARGIN+30+Math.random()*(W-ARENA_MARGIN*2-60), y:ARENA_MARGIN+70+Math.random()*(H-ARENA_MARGIN*2-110), angle:Math.random()*Math.PI*2, speed:0, maxSpeed:tc.speed, accel:0.12, friction:0.96, handling:tc.handling*0.7, maxHealth:tc.armor, health:tc.armor, size:tc.size, color:tc.color, alive:true, isLocal:false, flash:0, invincible:0 };
-    cars[ai.id] = ai;
-  }
-  
-  hideOverlay();
-  let cd = 3;
-  const iv = setInterval(() => { showToast(cd>0?cd:'GO!',cd===0?'#00ff88':'#ff3d00'); cd--; if(cd<0){clearInterval(iv);gameState='playing';hideToast();} }, 800);
-  
-  // AI update
-  setInterval(() => {
-    if (gameState !== 'playing') return;
-    Object.values(cars).forEach(c => {
-      if (c.isLocal || !c.alive) return;
-      const target = myCar.alive ? myCar : Object.values(cars).find(t => t.alive && t.id !== c.id);
-      if (target) {
-        const dx = target.x - c.x, dy = target.y - c.y;
-        const ta = Math.atan2(dy, dx);
-        let diff = ta - c.angle;
-        while(diff>Math.PI)diff-=Math.PI*2; while(diff<-Math.PI)diff+=Math.PI*2;
-        if(Math.abs(diff)>0.1) c.angle += Math.sign(diff)*c.handling;
-        const d = Math.hypot(dx,dy);
-        if(d>150) c.speed = Math.min(c.speed+0.08, c.maxSpeed*0.7);
-        else if(d<60) c.speed = Math.min(c.speed+0.2, c.maxSpeed);
-        else c.speed *= 0.96;
-      }
-      if(c.x<ARENA_MARGIN+80)c.angle+=0.05; if(c.x>W-ARENA_MARGIN-80)c.angle-=0.05;
-      if(c.y<ARENA_MARGIN+120)c.angle+=0.05; if(c.y>H-ARENA_MARGIN-80)c.angle-=0.05;
-      updateCar(c, dt);
+    this.powerUps.push({
+      type,
+      x: ax,
+      y: ay,
+      life: 12,
     });
-  }, 16);
-};
+  }
 
-// ── Init ────────────────────────────────────────────
-lastTime = performance.now();
-requestAnimationFrame(gameLoop);
+  // ── Car Death ──────────────────────────────────────
 
-// Show menu
-updateOverlay('SKRT DERBY', `<div style="margin:10px 0">
-  <p style="color:#888;margin:5px">Enter your name and choose a room to play with friends!</p>
-  <input id="playerName" placeholder="Your Name" style="padding:8px;border:1px solid #333;background:#111;color:#fff;border-radius:4px;width:200px;margin:5px" value="Player">
-  <br>
-  <input id="roomCode" placeholder="Room Code (e.g. arena1)" style="padding:8px;border:1px solid #333;background:#111;color:#fff;border-radius:4px;width:200px;margin:5px" value="arena1">
-  <br>
-  <p style="color:#555;font-size:0.8rem;margin:8px 0">Choose your car:</p>
-  <button class="btn" onclick="startMP('brawler')" style="margin:3px">🚗 Brawler</button>
-  <button class="btn" onclick="startMP('speedster')" style="margin:3px">🏎️ Speedster</button>
-  <button class="btn" onclick="startMP('tank')" style="margin:3px">🚛 Tank</button>
-  <button class="btn" onclick="startMP('drifter')" style="margin:3px">🚙 Drifter</button>
-  <br>
-  <p style="color:#555;font-size:0.8rem;margin:12px 0">Or practice solo:</p>
-  <button class="btn" onclick="startSP('brawler')" style="background:#333">🤖 Solo (vs AI)</button>
-</div>`, false);
+  _onCarDeath(car) {
+    this.renderer.spawnParticles(car.x, car.y, 25, car.color, 4, 0.8);
+    this.renderer.spawnSparks(car.x, car.y, 15, '#ffff00');
+    this.renderer.addScreenShake(15, 0.4);
+    this.renderer.addFlash('#ff6600', 0.3);
+    this.audio.explosion();
 
-function startMP(car) {
-  const name = document.getElementById('playerName').value || 'Racer';
-  const room = document.getElementById('roomCode').value || 'arena1';
-  window.startMultiplayer(name, car, room);
-}
+    // Find who might have killed this car (nearest alive car)
+    let killer = null;
+    let nearestDist = 120;
+    for (const other of this.cars) {
+      if (other.id === car.id || other.health <= 0) continue;
+      const dx = car.x - other.x, dy = car.y - other.y;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      if (dist < nearestDist) { nearestDist = dist; killer = other; }
+    }
 
-function startSP(car) {
-  const name = document.getElementById('playerName').value || 'Racer';
-  playerId = name;
-  window.startSinglePlayer(car);
+    if (car.isPlayer) {
+      this.kills++;
+      this.audio.stopEngine(car.id);
+      this.killFeed.push({ text: `YOU WERE WRECKED!`, timer: 3, color: '#ff3d00' });
+    } else {
+      this.kills++;
+      this.score += 100;
+      if (killer && killer.isPlayer) {
+        this.killFeed.push({ text: `YOU 💥 ${car.name}`, timer: 2.5, color: '#00ff88' });
+      } else if (killer) {
+        this.killFeed.push({ text: `${killer.name} 💥 ${car.name}`, timer: 2, color: '#ff8800' });
+      } else {
+        this.killFeed.push({ text: `${car.name} WRECKED`, timer: 2, color: '#888' });
+      }
+    }
+  }
+
+  _endGame() {
+    this.state = 'gameover';
+    this.audio.stopMusic();
+
+    const player = this.cars.find(c => c.isPlayer);
+    const won = player && player.health > 0 && this.cars.filter(c => c.health > 0).length <= 1;
+
+    if (won) {
+      this.score += Math.ceil(this.timeRemaining) * 5 + player.health * 2;
+      this.audio.gameOverWin();
+    } else {
+      this.audio.gameOverLose();
+    }
+
+    // Submit score
+    if (this.multiplayer) {
+      this._sendWS({ type: 'score', score: this.score, kills: this.kills });
+    } else {
+      fetch('/api/scores', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: 1,
+          score: this.score,
+          kills: this.kills,
+          survival_time: this.config.gameTime - this.timeRemaining,
+          car_type: this.config.carType,
+          arena: 'default',
+        }),
+      }).catch(() => {});
+    }
+
+    // Stop engines
+    for (const car of this.cars) {
+      if (car.isPlayer) this.audio.stopEngine(car.id);
+    }
+  }
 }
